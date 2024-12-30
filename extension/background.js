@@ -452,7 +452,6 @@ async function saveReminderData() {
     await chrome.storage.local.set({
         reminderData: {
             interval: reminderData.interval,
-            lastCheck: reminderData.lastCheck,
             reminderTimes: reminderData.reminderTimes,
             customReminderTabs: Array.from(reminderData.customReminderTabs)
         }
@@ -582,21 +581,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch(message.type) {
         case 'toggleCustomReminder':
             const { tabId, isActive } = message;
+            // 保存到 storage 和内存中
             if (isActive) {
                 reminderData.customReminderTabs.add(tabId);
+                // 如果有提醒间隔，设置提醒时间
                 if (reminderData.interval > 0) {
                     const nextReminderTime = Date.now() + reminderData.interval;
                     reminderData.reminderTimes[tabId] = nextReminderTime;
-                    // 保存到 storage
                     chrome.storage.local.set({
+                        [`reminder_${tabId}`]: true,
                         [`reminderTime_${tabId}`]: nextReminderTime
+                    });
+                } else {
+                    chrome.storage.local.set({
+                        [`reminder_${tabId}`]: true
                     });
                 }
             } else {
                 reminderData.customReminderTabs.delete(tabId);
                 delete reminderData.reminderTimes[tabId];
-                // 清除 storage
-                chrome.storage.local.remove(`reminderTime_${tabId}`);
+                chrome.storage.local.remove([
+                    `reminder_${tabId}`,
+                    `reminderTime_${tabId}`
+                ]);
             }
             saveReminderData();
             break;

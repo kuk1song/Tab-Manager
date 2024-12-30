@@ -389,13 +389,10 @@ function displayTabs(tabs) {
 
     Promise.all(tabs.map(tab => {
         return new Promise((resolve) => {
-            // 同时获取铃铛状态和提醒时间
-            chrome.storage.local.get([
-                `reminder_${tab.id}`, 
-                `reminderTime_${tab.id}`
-            ], (result) => {
-                const isReminderActive = result[`reminder_${tab.id}`] === true; // 确保是布尔值
-                const reminderTime = result[`reminderTime_${tab.id}`];
+            // 从 storage 中获取铃铛状态
+            chrome.storage.local.get([`reminder_${tab.id}`], (result) => {
+                // 确保我们得到一个布尔值
+                const isReminderActive = result[`reminder_${tab.id}`] === true;
                 
                 const tabElement = document.createElement('div');
                 tabElement.className = 'tab-item';
@@ -414,13 +411,14 @@ function displayTabs(tabs) {
                     </div>
                 `;
 
+                // 添加铃铛点击事件
                 const reminderBtn = tabElement.querySelector('.reminder-toggle');
                 reminderBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     const tabId = e.target.dataset.tabId;
                     const isActive = e.target.classList.toggle('active');
                     
-                    // 更新存储
+                    // 保存状态到 storage
                     await chrome.storage.local.set({
                         [`reminder_${tabId}`]: isActive
                     });
@@ -452,7 +450,6 @@ function displayTabs(tabs) {
         tabElements.forEach(element => {
             tabsList.appendChild(element);
         });
-        // 启动倒计时更新
         updateCountdowns();
     });
 }
