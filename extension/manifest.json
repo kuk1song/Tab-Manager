@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Smart Tab Manager",
+  "version": "1.0",
+  "description": "AI-Powered Tab Management Tool",
+  "permissions": [
+    "tabs",
+    "storage",
+    "alarms",
+    "notifications",
+    "scripting",
+    "system.display"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "host_permissions": [
+    "http://localhost:5000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+          "48": "icons/icon48.png"   
+        }
+    },
+    "icons": {
+        "48": "icons/icon48.png"
+    }
+}

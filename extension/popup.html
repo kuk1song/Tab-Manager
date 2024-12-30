@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Tab Manager</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1><span>Smart Tab Manager</span></h1>
+            </div>
+            
+            <div class="filters">
+                <div class="filter-group">
+                    <select id="categoryFilter" class="select-styled">
+                        <option value="all">Tab Categories</option>
+                        <option value="work">💼 Work</option>
+                        <option value="learning">📚 Learning</option>
+                        <option value="entertainment">🎮 Entertainment</option>
+                        <option value="social">💬 Social</option>
+                        <option value="other">📌 Other</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <select id="sortBy" class="select-styled">
+                        <option value="recent">Recent First</option>
+                        <option value="importance">By Importance</option>
+                        <option value="title">By Name</option>
+                    </select>
+                </div>
+
+                <div class="reminder-setting">
+                    <span class="reminder-label">⏰ <strong>Remind after</strong></span>
+                    <div class="reminder-input-group">
+                        <input type="number" 
+                               id="reminderInterval" 
+                               min="0" 
+                               value="0" 
+                               class="reminder-input">
+                        <select id="timeUnit" class="select-styled time-unit">
+                            <option value="m">Min</option>
+                            <option value="h">Hr</option>
+                            <option value="d">Day</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button id="refreshBtn" class="refresh-button">
+                    <span>Analyze Tabs</span>
+                </button>
+            </div>
+        </header>
+
+        <div id="tabsList" class="tabs-list"></div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

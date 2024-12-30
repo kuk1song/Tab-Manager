@@ -1,0 +1,667 @@
+html, body {
+    width: 450px;
+    height: 600px;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(to bottom, white, var(--primary-light) 200%);
+    overflow: hidden;
+}
+
+.container {
+    width: 450px;
+    padding: 10px;
+    box-sizing: border-box;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    background: white;
+}
+
+.container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 8px;
+    padding: 1px;
+    background: linear-gradient(135deg, 
+        var(--primary-light) 0%,
+        var(--primary) 50%,
+        var(--primary-light) 100%
+    );
+    -webkit-mask: 
+        linear-gradient(#fff 0 0) content-box, 
+        linear-gradient(#fff 0 0);
+    mask: 
+        linear-gradient(#fff 0 0) content-box, 
+        linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+}
+
+.container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    box-shadow: 
+        0 0 15px rgba(123, 104, 238, 0.1),
+        inset 0 0 15px rgba(123, 104, 238, 0.1);
+    pointer-events: none;
+    border-radius: 8px;
+}
+
+.header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+#searchInput {
+    flex: 1;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#sortSelect {
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+
+h1 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    color: var(--primary);
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    position: relative;
+    padding: 4px 0;
+    text-transform: uppercase;
+}
+
+.filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin: 6px 0;
+}
+
+/* Tiny Bell */
+.reminder-toggle {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.reminder-toggle:hover {
+    background: var(--primary-light);
+    transform: scale(1.1);
+}
+
+.reminder-toggle.active {
+    color: var(--primary);
+}
+
+.reminder-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.countdown {
+    font-size: 12px;
+    color: var(--primary);
+    min-width: 80px;
+    text-align: right;
+}
+
+.reminder-toggle {
+    padding: 2px 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.reminder-toggle.active {
+    color: #1a73e8;
+}
+
+
+
+
+.time-unit-select {
+    border: none;
+    background: transparent;
+    padding: 4px;
+    font-size: 14px;
+    color: #1a73e8;
+    cursor: pointer;
+    min-width: 80px;
+}
+
+.reminder-hint {
+    color: #5f6368;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+/* 标签页列表样式 */
+.tabs-container {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin-top: 16px;
+}
+
+.tab-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    gap: 12px;
+    transition: all 0.2s;
+    border-radius: 8px;
+    margin: 4px 0;
+    animation: slideIn 0.3s ease-out;
+}
+
+.tab-item img {
+    width: 16px;
+    height: 16px;
+}
+
+.tab-info {
+    flex: 1;
+    overflow: hidden;
+}
+
+.tab-item:last-child {
+    border-bottom: none;
+}
+
+.tab-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(4px);
+}
+
+.tab-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 12px;
+}
+
+.tab-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tab-title {
+    font-size: 14px;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tab-url {
+    font-size: 12px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 徽章样式 */
+.importance-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.importance-high {
+    background-color: #e8f0fe;
+    color: #1967d2;
+}
+
+.importance-medium {
+    background-color: #fef7e0;
+    color: #b06000;
+}
+
+.importance-low {
+    background-color: #fce8e6;
+    color: #c5221f;
+}
+
+.category-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    background-color: #f1f3f4;
+    color: #5f6368;
+}
+
+.time-stats {
+    display: flex;
+    gap: 8px;
+}
+
+.time-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.last-active {
+    background-color: #e8f0fe;
+    color: #1967d2;
+}
+
+.total-time {
+    background-color: #fce8e6;
+    color: #c5221f;
+}
+
+.visit-count {
+    background-color: #e6f4ea;
+    color: #137333;
+}
+
+/* 按钮样式 */
+button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    background-color: #1a73e8;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+button:hover {
+    background-color: #1557b0;
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* 加载和错误状态 */
+.loading {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+}
+
+.error {
+    padding: 20px;
+    text-align: center;
+    color: #d93025;
+    background: #fce8e6;
+    border-radius: 4px;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+
+.start-btn {
+    background: #4CAF50;
+    color: white;
+    padding: 4px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 8px;
+    font-size: 12px;
+}
+
+.refresh-btn {
+    background: #2196F3;
+    color: white;
+    padding: 6px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 8px;
+    font-size: 13px;
+    width: 100%;
+}
+
+.start-btn:hover, .refresh-btn:hover {
+    opacity: 0.9;
+}
+
+.setting-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+/* 优化头部布局 */
+header {
+    position: sticky;
+    top: 0;
+    background: white;
+    padding: 4px 0;
+    border-bottom: 1px solid #eee;
+    z-index: 100;
+}
+
+/* 优化过滤器布局 */
+.filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin: 6px 0;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.reminder-setting {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: var(--primary-light);
+    border-radius: 8px;
+    border: 1px solid rgba(123, 104, 238, 0.1);
+}
+
+/* 美化选择框 */
+select {
+    appearance: none;
+    padding: 8px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+select:hover {
+    border-color: #1a73e8;
+}
+
+/* 添加过渡动画 */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 优化按钮交互 */
+button::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s;
+}
+
+button:active::after {
+    width: 200px;
+    height: 200px;
+}
+
+/* 修改标签列表样式，只在列表区域滚动 */
+.tabs-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    margin-top: 8px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: linear-gradient(to bottom, 
+        rgba(255,255,255,0.8), 
+        rgba(230,230,250,0.1)
+    );
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* 修改刷新按钮样式 */
+.refresh-button {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background-color: var(--primary);
+    border: none;
+    border-radius: 20px;
+    font-size: 14px;
+    color: white;
+    margin: 8px auto 0;
+    min-width: 160px;
+    box-shadow: 0 2px 4px rgba(123, 104, 238, 0.2);
+    transition: all 0.2s ease;
+}
+
+.refresh-button:hover {
+    background-color: var(--primary-dark);
+    box-shadow: 0 4px 8px rgba(123, 104, 238, 0.3);
+    transform: translateY(-1px);
+}
+
+.refresh-button:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(123, 104, 238, 0.2);
+}
+
+/* 修改选择框样式 */
+.select-styled {
+    appearance: none;
+    padding: 4px 8px;
+    border: 1px solid var(--primary-light);
+    border-radius: 4px;
+    background: white;
+    font-size: 12px;
+    color: var(--primary);
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.select-styled:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.select-styled:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(123, 104, 238, 0.1);
+}
+
+/* 添加下拉箭头样式 */
+.select-styled {
+    background-image: linear-gradient(45deg, transparent 50%, var(--primary) 50%),
+                      linear-gradient(135deg, var(--primary) 50%, transparent 50%);
+    background-position: 
+        calc(100% - 15px) calc(50% + 2px),
+        calc(100% - 10px) calc(50% + 2px);
+    background-size: 
+        5px 5px,
+        5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 25px;
+}
+
+/* 选项样式 */
+.select-styled option {
+    color: var(--primary);
+    background: white;
+    padding: 8px;
+}
+
+/* 修改提醒标签样式 */
+.reminder-label {
+    font-size: 12px;      /* 与其他选择器字体大小一致 */
+    color: #5f6368;       /* 与其他选择器颜色一致 */
+}
+
+.reminder-label strong {
+    font-weight: 500;     /* 使用稍微温和的加粗效果 */
+    color: var(--primary);
+}
+
+/* 修改输入框样式 */
+.reminder-input {
+    width: 40px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 4px;
+    font-size: 12px;
+    text-align: center;
+    background: #f8f9fa;
+    color: #5f6368;
+}
+
+.reminder-input:hover {
+    border-color: #dadce0;
+    background: #f1f3f4;
+}
+
+.reminder-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 2px rgba(123, 104, 238, 0.1);
+}
+
+/* 修改输入组样式 */
+.reminder-input-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* 修改时间单位选择框样式 */
+.time-unit {
+    width: auto;
+    min-width: 50px;
+    padding: 4px;
+    font-weight: 550;
+    color: var(--primary);
+}
+
+/* 修改标题装饰 */
+h1::after {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--primary-light), var(--primary), var(--primary-light));
+    margin: 4px auto 0;
+    border-radius: 2px;
+}
+
+/* 添加标题上方装饰 */
+h1::before {
+    content: '';
+    display: block;
+    width: 80px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--primary-light), transparent);
+    margin: 0 auto 4px;
+}
+
+/* 添加标题文字效果 */
+.header-content {
+    position: relative;
+    padding: 2px 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(230,230,250,0.2) 100%);
+    border-radius: 8px;
+}
+
+/* 添加标题悬停效果 */
+h1:hover {
+    transform: scale(1.02);
+    transition: transform 0.3s ease;
+}
+
+/* 添加标题文字渐变 */
+h1 span {
+    background: linear-gradient(45deg, var(--primary), var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    display: inline-block;
+}
+
+/* 定义主题色变量 */
+:root {
+    --primary: #7B68EE;      /* 中等紫色 */
+    --primary-dark: #6A5ACD;  /* 深紫色，用于悬浮 */
+    --primary-light: #E6E6FA; /* 浅紫色，用于背景 */
+    --accent: #9370DB;       /* 紫罗兰色，用于强调 */
+    --text-primary: #2C2C2C;
+    --text-secondary: #666666;
+}

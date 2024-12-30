@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+    <style>
+        body {
+            width: 100%;
+            height: 100%;
+            padding: 24px;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #9c27b0, #673ab7);
+            margin: 0;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(103, 58, 183, 0.3);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            font-size: clamp(20px, 4vw, 24px);
+            text-align: center;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            margin-bottom: 8px;
+        }
+
+        .title {
+            font-size: clamp(14px, 3vw, 16px);
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            word-wrap: break-word;
+            margin-bottom: 8px;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            margin: 16px 0;
+        }
+
+        .open-btn {
+            padding: 10px 20px;
+            background: #fff;
+            color: #9c27b0;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .reminder-settings {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 8px;
+        }
+
+        .time-input {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin: 12px 0;
+        }
+
+        input[type="number"] {
+            width: 70px;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #673ab7;
+            font-size: 15px;
+            text-align: center;
+        }
+
+        select {
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #673ab7;
+            font-size: 15px;
+        }
+
+        .bottom-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .start-btn {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        .close-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="message" id="message"></div>
+    <div class="title" id="title"></div>
+    
+    <div class="action-buttons">
+        <button class="open-btn" id="openTab">Open Tab</button>
+    </div>
+
+    <div class="reminder-settings">
+        <div class="time-input">
+            <input type="number" id="reminderTime" min="1" value="5">
+            <select id="timeUnit">
+                <option value="m">Minutes</option>
+                <option value="h">Hours</option>
+                <option value="d">Days</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="bottom-buttons">
+        <button class="start-btn" id="startReminder">Start</button>
+        <button class="close-btn" id="close">Close</button>
+    </div>
+    <script src="reminder.js"></script>
+</body>
+</html>
