@@ -389,11 +389,15 @@ function displayTabs(tabs) {
 
     Promise.all(tabs.map(tab => {
         return new Promise((resolve) => {
-            // 从 storage 中获取铃铛状态
-            chrome.storage.local.get([`reminder_${tab.id}`], (result) => {
-                // 确保我们得到一个布尔值
-                const isReminderActive = result[`reminder_${tab.id}`] === true;
+            const tabId = tab.id;
+            
+            // 只读取单独存储的铃铛状态
+            chrome.storage.local.get(`reminder_${tabId}`, (result) => {
+                // 确保使用严格的布尔值比较
+                const isReminderActive = result[`reminder_${tabId}`] === true;
                 
+                console.log(`Tab ${tabId} bell status:`, isReminderActive);
+
                 const tabElement = document.createElement('div');
                 tabElement.className = 'tab-item';
                 tabElement.innerHTML = `
@@ -404,43 +408,43 @@ function displayTabs(tabs) {
                     </div>
                     <div class="reminder-container">
                         <button class="reminder-toggle ${isReminderActive ? 'active' : ''}" 
-                                data-tab-id="${tab.id}">
+                                data-tab-id="${tabId}">
                             🔔
                         </button>
-                        ${isReminderActive ? `<span class="countdown" data-tab-id="${tab.id}"></span>` : ''}
+                        ${isReminderActive ? `<span class="countdown" data-tab-id="${tabId}"></span>` : ''}
                     </div>
                 `;
 
-                // 添加铃铛点击事件
+                // 添加点击事件处理
+                tabElement.addEventListener('click', () => {
+                    chrome.tabs.update(tab.id, { active: true });
+                    chrome.windows.update(tab.windowId, { focused: true });
+                });
+
                 const reminderBtn = tabElement.querySelector('.reminder-toggle');
                 reminderBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    const tabId = e.target.dataset.tabId;
+                    const tabId = parseInt(e.target.dataset.tabId);
                     const isActive = e.target.classList.toggle('active');
                     
-                    // 保存状态到 storage
-                    await chrome.storage.local.set({
-                        [`reminder_${tabId}`]: isActive
-                    });
+                    console.log('Changing bell state - Tab:', tabId, 'Active:', isActive);
+                    
+                    try {
+                        // 只保存铃铛状态
+                        await chrome.storage.local.set({
+                            [`reminder_${tabId}`]: isActive
+                        });
 
-                    // 更新倒计时显示
-                    const container = e.target.closest('.reminder-container');
-                    if (isActive) {
-                        const countdown = document.createElement('span');
-                        countdown.className = 'countdown';
-                        countdown.dataset.tabId = tabId;
-                        container.appendChild(countdown);
-                    } else {
-                        const countdown = container.querySelector('.countdown');
-                        if (countdown) countdown.remove();
+                        console.log('Bell state saved:', {
+                            tabId,
+                            isActive,
+                            stored: (await chrome.storage.local.get(`reminder_${tabId}`))
+                        });
+
+                    } catch (error) {
+                        console.error('Failed to save bell state:', error);
+                        e.target.classList.toggle('active'); // 恢复状态
                     }
-
-                    // 发送消息到 background.js
-                    chrome.runtime.sendMessage({
-                        type: 'toggleCustomReminder',
-                        tabId: parseInt(tabId),
-                        isActive: isActive
-                    });
                 });
 
                 resolve(tabElement);
@@ -453,6 +457,12 @@ function displayTabs(tabs) {
         updateCountdowns();
     });
 }
+
+// 刷新按钮点击事件
+document.getElementById('refreshBtn').addEventListener('click', () => {
+    // 获取当前所有标签页并重新显示，但保持铃铛状态
+    chrome.tabs.query({}, displayTabs);
+});
 
 // 添加倒计时更新函数
 function updateCountdowns() {

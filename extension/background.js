@@ -449,13 +449,22 @@ function formatTimeLeft(ms) {
 
 // 保存提醒数据到存储
 async function saveReminderData() {
+    const dataToSave = {
+        interval: reminderData.interval,
+        reminderTimes: reminderData.reminderTimes,
+        customReminderTabs: Array.from(reminderData.customReminderTabs)
+    };
+    
     await chrome.storage.local.set({
-        reminderData: {
-            interval: reminderData.interval,
-            reminderTimes: reminderData.reminderTimes,
-            customReminderTabs: Array.from(reminderData.customReminderTabs)
-        }
+        reminderData: dataToSave
     });
+
+    // 同时保存每个标签页的单独状态
+    for (const tabId of reminderData.customReminderTabs) {
+        await chrome.storage.local.set({
+            [`reminder_${tabId}`]: true
+        });
+    }
 }
 
 // 更新提醒间隔
@@ -567,13 +576,23 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // 监听标签页更新事件，保持提醒状态
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete') {
+        // 检查该标签页的铃铛状态
         chrome.storage.local.get(`reminder_${tabId}`, (result) => {
-            const isReminderActive = result[`reminder_${tabId}`];
+            const isReminderActive = result[`reminder_${tabId}`] === true;
             if (isReminderActive) {
-                // 如果需要，可以在这里添加提醒相关的逻辑
+                // 确保状态保持
+                chrome.storage.local.set({
+                    [`reminder_${tabId}`]: true
+                });
             }
         });
     }
+});
+
+// 监听标签页关闭事件
+chrome.tabs.onRemoved.addListener((tabId) => {
+    // 清理关闭标签页的状态
+    chrome.storage.local.remove(`reminder_${tabId}`);
 });
 
 // 添加消息监听器
@@ -621,3 +640,51 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             break;
     }
 });
+
+// 修改初始化函数
+async function initializeReminderData() {
+    try {
+        // 加载所有存储的数据
+        const data = await chrome.storage.local.get(null);  // 获取所有存储的数据
+        
+        // 初始化 reminderData
+        reminderData.interval = 0;
+        reminderData.reminderTimes = {};
+        reminderData.customReminderTabs = new Set();
+
+        // 从存储中恢复数据
+        if (data.reminderData) {
+            reminderData.interval = data.reminderData.interval || 0;
+            reminderData.reminderTimes = data.reminderData.reminderTimes || {};
+            
+            // 恢复自定义提醒标签集合
+            if (data.reminderData.customReminderTabs) {
+                data.reminderData.customReminderTabs.forEach(tabId => {
+                    reminderData.customReminderTabs.add(parseInt(tabId));
+                });
+            }
+        }
+
+        // 检查所有标签页的单独存储状态
+        const tabs = await chrome.tabs.query({});
+        for (const tab of tabs) {
+            if (data[`reminder_${tab.id}`] === true) {
+                reminderData.customReminderTabs.add(tab.id);
+                // 确保状态一致性
+                await chrome.storage.local.set({
+                    [`reminder_${tab.id}`]: true
+                });
+            }
+        }
+
+        // 保存初始化后的状态
+        await saveReminderData();
+        
+        console.log('Initialized reminder data:', reminderData);
+    } catch (err) {
+        console.error('Error initializing reminder data:', err);
+    }
+}
+
+// 在扩展启动时初始化
+initializeReminderData();
