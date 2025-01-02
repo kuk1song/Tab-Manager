@@ -268,10 +268,67 @@ async function updateActiveTime(tabId) {
     await chrome.storage.local.set({ tabActivityData });
 }
 
-// 添加一个变量来跟踪当前打开的提醒窗口
-let activeReminders = new Set();
+// 添加提醒管理
+let activeReminders = new Map(); // 存储活动的提醒
 
-// 检查需要提醒的标签页
+// 监听来自 popup 的消息
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'startReminder') {
+        const { tabId, endTime } = message;
+        
+        // 如果已经存在提醒，先清除
+        if (activeReminders.has(tabId)) {
+            clearTimeout(activeReminders.get(tabId));
+            activeReminders.delete(tabId);
+        }
+        
+        // 设置新的提醒
+        const timerId = setTimeout(async () => {
+            try {
+                const tab = await chrome.tabs.get(tabId);
+                // 创建提醒窗口
+                chrome.windows.create({
+                    url: `reminder.html?tabId=${tabId}&message=${encodeURIComponent('Time to check this tab!')}&title=${encodeURIComponent(tab.title)}`,
+                    type: 'popup',
+                    width: 400,
+                    height: 500
+                });
+
+                // 通知 popup 更新 UI
+                chrome.runtime.sendMessage({
+                    type: 'reminderComplete',
+                    tabId: tabId
+                });
+
+                // 清理提醒和存储
+                activeReminders.delete(tabId);
+                await chrome.storage.local.remove([
+                    `reminder_${tabId}`,
+                    `reminderEnd_${tabId}`
+                ]);
+
+            } catch (error) {
+                console.error('Tab no longer exists:', error);
+            }
+        }, endTime - Date.now());
+
+        activeReminders.set(tabId, timerId);
+    }
+});
+
+// 保留标签页关闭时的清理
+chrome.tabs.onRemoved.addListener((tabId) => {
+    if (activeReminders.has(tabId)) {
+        clearTimeout(activeReminders.get(tabId));
+        activeReminders.delete(tabId);
+        chrome.storage.local.remove([
+            `reminder_${tabId}`,
+            `reminderEnd_${tabId}`
+        ]);
+    }
+});
+
+// 创建提醒窗口
 async function createReminderWindow(tab, category) {
     try {
         // 检查是否已经存在该标签页的提醒窗口
@@ -377,6 +434,7 @@ async function createReminderWindow(tab, category) {
         console.error('Error creating reminder window:', err);
     }
 }
+
 // 增加检查频率
 setInterval(checkTabsForReminders, 1000); // 每秒检查一次
 
