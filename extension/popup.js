@@ -293,12 +293,41 @@ class TabManagerUI {
                             : `${initialSeconds}s`;
 
                     // 然后设置定时更新
-                    const updateInterval = setInterval(() => {
+                    const updateInterval = setInterval(async () => {
                         const timeLeft = endTime - Date.now();
                         if (timeLeft <= 0) {
+                            // 倒计时结束，清理状态
                             countdownSpan.textContent = 'Time\'s up!';
-                            clearInterval(updateInterval);
+                            
+                            // 延迟一秒后清理显示
+                            setTimeout(async () => {
+                                // 清除存储的数据
+                                await chrome.storage.local.remove([
+                                    `reminder_${tab.id}`,
+                                    `reminderEnd_${tab.id}`
+                                ]);
+
+                                // 更新UI
+                                const reminderBtn = reminderContainer.querySelector('.reminder-toggle');
+                                if (reminderBtn) {
+                                    reminderBtn.classList.remove('active');
+                                    reminderBtn.textContent = '🔕';
+                                }
+
+                                // 移除倒计时显示
+                                if (countdownSpan) {
+                                    countdownSpan.remove();
+                                }
+
+                                // 清除定时器
+                                clearInterval(updateInterval);
+                                this.countdownIntervals.delete(tab.id);
+
+                                console.log(`Auto cleared reminder for tab ${tab.id} after completion`);
+                            }, 1000);
+                            
                         } else {
+                            // 正常更新倒计时显示
                             const seconds = Math.floor(timeLeft / 1000);
                             const minutes = Math.floor(seconds / 60);
                             const hours = Math.floor(minutes / 60);
@@ -369,12 +398,41 @@ class TabManagerUI {
                                 : `${initialSeconds}s`;
 
                         // 然后设置定时更新
-                        const updateInterval = setInterval(() => {
+                        const updateInterval = setInterval(async () => {
                             const timeLeft = endTime - Date.now();
                             if (timeLeft <= 0) {
+                                // 倒计时结束，清理状态
                                 countdownSpan.textContent = 'Time\'s up!';
-                                clearInterval(updateInterval);
+                                
+                                // 延迟一秒后清理显示
+                                setTimeout(async () => {
+                                    // 清除存储的数据
+                                    await chrome.storage.local.remove([
+                                        `reminder_${tabId}`,
+                                        `reminderEnd_${tabId}`
+                                    ]);
+
+                                    // 更新UI
+                                    const reminderBtn = reminderContainer.querySelector('.reminder-toggle');
+                                    if (reminderBtn) {
+                                        reminderBtn.classList.remove('active');
+                                        reminderBtn.textContent = '🔕';
+                                    }
+
+                                    // 移除倒计时显示
+                                    if (countdownSpan) {
+                                        countdownSpan.remove();
+                                    }
+
+                                    // 清除定时器
+                                    clearInterval(updateInterval);
+                                    this.countdownIntervals.delete(tabId);
+
+                                    console.log(`Auto cleared reminder for tab ${tabId} after completion`);
+                                }, 1000);
+                                
                             } else {
+                                // 正常更新倒计时显示
                                 const seconds = Math.floor(timeLeft / 1000);
                                 const minutes = Math.floor(seconds / 60);
                                 const hours = Math.floor(minutes / 60);
@@ -636,16 +694,44 @@ function displayTabs(tabs) {
                     reminderContainer.appendChild(countdownSpan);
 
                     // 设置定时更新
-                    const updateInterval = setInterval(() => {
+                    const updateInterval = setInterval(async () => {
                         const timeLeft = endTime - Date.now();
                         if (timeLeft <= 0) {
+                            // 倒计时结束，清理状态
                             countdownSpan.textContent = 'Time\'s up!';
-                            clearInterval(updateInterval);
+                            
+                            // 延迟一秒后清理显示
+                            setTimeout(async () => {
+                                // 清除存储的数据
+                                await chrome.storage.local.remove([
+                                    `reminder_${tabId}`,
+                                    `reminderEnd_${tabId}`
+                                ]);
+
+                                // 更新UI
+                                const reminderBtn = reminderContainer.querySelector('.reminder-toggle');
+                                if (reminderBtn) {
+                                    reminderBtn.classList.remove('active');
+                                    reminderBtn.textContent = '🔕';
+                                }
+
+                                // 移除倒计时显示
+                                if (countdownSpan) {
+                                    countdownSpan.remove();
+                                }
+
+                                // 清除定时器
+                                clearInterval(updateInterval);
+                                this.countdownIntervals.delete(tabId);
+
+                                console.log(`Auto cleared reminder for tab ${tabId} after completion`);
+                            }, 1000);
+                            
                         } else {
+                            // 正常更新倒计时显示
                             const seconds = Math.floor(timeLeft / 1000);
                             const minutes = Math.floor(seconds / 60);
                             const hours = Math.floor(minutes / 60);
-
                             countdownSpan.textContent = hours > 0 
                                 ? `${hours}h ${minutes % 60}m ${seconds % 60}s`
                                 : minutes > 0
@@ -697,12 +783,41 @@ function displayTabs(tabs) {
                                     : `${initialSeconds}s`;
 
                             // 然后设置定时更新
-                            const updateInterval = setInterval(() => {
+                            const updateInterval = setInterval(async () => {
                                 const timeLeft = endTime - Date.now();
                                 if (timeLeft <= 0) {
+                                    // 倒计时结束，清理状态
                                     countdownSpan.textContent = 'Time\'s up!';
-                                    clearInterval(updateInterval);
+                                    
+                                    // 延迟一秒后清理显示
+                                    setTimeout(async () => {
+                                        // 清除存储的数据
+                                        await chrome.storage.local.remove([
+                                            `reminder_${tabId}`,
+                                            `reminderEnd_${tabId}`
+                                        ]);
+
+                                        // 更新UI
+                                        const reminderBtn = reminderContainer.querySelector('.reminder-toggle');
+                                        if (reminderBtn) {
+                                            reminderBtn.classList.remove('active');
+                                            reminderBtn.textContent = '🔕';
+                                        }
+
+                                        // 移除倒计时显示
+                                        if (countdownSpan) {
+                                            countdownSpan.remove();
+                                        }
+
+                                        // 清除定时器
+                                        clearInterval(updateInterval);
+                                        this.countdownIntervals.delete(tabId);
+
+                                        console.log(`Auto cleared reminder for tab ${tabId} after completion`);
+                                    }, 1000);
+                                    
                                 } else {
+                                    // 正常更新倒计时显示
                                     const seconds = Math.floor(timeLeft / 1000);
                                     const minutes = Math.floor(seconds / 60);
                                     const hours = Math.floor(minutes / 60);
