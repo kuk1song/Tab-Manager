@@ -205,6 +205,7 @@ class TabManagerUI {
                 'activeReminderInterval'
             ]);
             
+            // 明确检查是否为 true，如果是 false 或不存在都视为未激活
             const isActive = reminderData[`reminder_${tab.id}`] === true;
             const endTime = reminderData[`reminderEnd_${tab.id}`];
             
@@ -344,14 +345,7 @@ class TabManagerUI {
                             [`reminderEnd_${tabId}`]: endTime
                         });
 
-                        // 通知 background 开始提醒
-                        chrome.runtime.sendMessage({
-                            type: 'startReminder',
-                            tabId: tabId,
-                            endTime: endTime
-                        });
-
-                        // 更新UI
+                        // 只更新 UI 和设置倒计时
                         e.target.classList.add('active');
                         e.target.textContent = '🔔';
 
@@ -399,8 +393,12 @@ class TabManagerUI {
                     } else {
                         // 取消激活铃铛
                         // 清除存储的数据
+                        await chrome.storage.local.set({
+                            [`reminder_${tabId}`]: false
+                        });
+                        
+                        // 清除倒计时相关的数据
                         await chrome.storage.local.remove([
-                            `reminder_${tabId}`,
                             `reminderEnd_${tabId}`
                         ]);
 
@@ -489,49 +487,35 @@ class TabManagerUI {
 
     // 在 TabManagerUI 类中添加一个方法来处理倒计时结束
     async handleCountdownEnd(tabId, tab, countdownSpan, reminderContainer, updateInterval) {
-        // 显示 Time's up!
+        // 显示 Time's up! 并更新 UI
         countdownSpan.textContent = 'Time\'s up!';
         
-        // 通知 background.js 创建提醒窗口
-        console.log('Sending reminder message to background.js:', { tabId });
+        // 恢复铃铛到未激活状态并永久存储
+        const reminderBtn = reminderContainer.querySelector('.reminder-toggle');
+        if (reminderBtn) {
+            reminderBtn.classList.remove('active');
+            reminderBtn.textContent = '🔕';
+        }
+
+        // 永久存储铃铛的未激活状态
+        await chrome.storage.local.set({
+            [`reminder_${tabId}`]: false  // 明确设置为 false
+        });
+
+        // 清除倒计时相关的存储
+        await chrome.storage.local.remove([
+            `reminderEnd_${tabId}`
+        ]);
+
+        // 发送提醒消息并清理
         chrome.runtime.sendMessage({
             type: 'startReminder',
             tabId: tabId
-        }, (response) => {
-            // 检查消息是否发送成功
-            if (chrome.runtime.lastError) {
-                console.error('Failed to send message:', chrome.runtime.lastError);
-            } else {
-                console.log('Message sent successfully');
-            }
         });
-        
-        // 延迟一秒后清理状态
-        setTimeout(async () => {
-            // 清除存储的数据
-            await chrome.storage.local.remove([
-                `reminder_${tabId}`,
-                `reminderEnd_${tabId}`
-            ]);
 
-            // 更新UI
-            const reminderBtn = reminderContainer.querySelector('.reminder-toggle');
-            if (reminderBtn) {
-                reminderBtn.classList.remove('active');
-                reminderBtn.textContent = '🔕';
-            }
-
-            // 移除倒计时显示
-            if (countdownSpan) {
-                countdownSpan.remove();
-            }
-
-            // 清除定时器
-            clearInterval(updateInterval);
-            this.countdownIntervals.delete(tabId);
-
-            console.log(`Auto cleared reminder for tab ${tabId} after completion`);
-        }, 1000);
+        clearInterval(updateInterval);
+        this.countdownIntervals.delete(tabId);
+        countdownSpan.remove();
     }
 }
 
