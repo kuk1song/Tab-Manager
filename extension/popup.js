@@ -492,12 +492,18 @@ class TabManagerUI {
         // 显示 Time's up!
         countdownSpan.textContent = 'Time\'s up!';
         
-        // 显示提醒窗口
-        chrome.windows.create({
-            url: `reminder.html?tabId=${tabId}&message=${encodeURIComponent('Time to check this tab!')}&title=${encodeURIComponent(tab.title)}`,
-            type: 'popup',
-            width: 400,
-            height: 500
+        // 通知 background.js 创建提醒窗口
+        console.log('Sending reminder message to background.js:', { tabId });
+        chrome.runtime.sendMessage({
+            type: 'startReminder',
+            tabId: tabId
+        }, (response) => {
+            // 检查消息是否发送成功
+            if (chrome.runtime.lastError) {
+                console.error('Failed to send message:', chrome.runtime.lastError);
+            } else {
+                console.log('Message sent successfully');
+            }
         });
         
         // 延迟一秒后清理状态

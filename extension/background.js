@@ -1,3 +1,6 @@
+// 在文件顶部添加
+console.log('Background script loaded');
+
 // 初始化数据结构
 let tabData = {
     importance: {},      // 重要性分数
@@ -195,6 +198,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // 初始化时分析所有标签页
 chrome.runtime.onInstalled.addListener(() => {
+    console.log('Extension installed/updated');
     chrome.tabs.query({}, (tabs) => {
         tabs.forEach(analyzeTab);
     });
@@ -273,46 +277,36 @@ let activeReminders = new Map(); // 存储活动的提醒
 
 // 监听来自 popup 的消息
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log('Background received message:', message);
+    
     if (message.type === 'startReminder') {
-        const { tabId, endTime } = message;
+        const { tabId } = message;
+        console.log('Creating reminder window for tab:', tabId);
         
-        // 如果已经存在提醒，先清除
-        if (activeReminders.has(tabId)) {
-            clearTimeout(activeReminders.get(tabId));
-            activeReminders.delete(tabId);
-        }
-        
-        // 设置新的提醒
-        const timerId = setTimeout(async () => {
-            try {
-                const tab = await chrome.tabs.get(tabId);
-                // 创建提醒窗口
-                chrome.windows.create({
-                    url: `reminder.html?tabId=${tabId}&message=${encodeURIComponent('Time to check this tab!')}&title=${encodeURIComponent(tab.title)}`,
-                    type: 'popup',
-                    width: 400,
-                    height: 500
-                });
-
-                // 通知 popup 更新 UI
-                chrome.runtime.sendMessage({
-                    type: 'reminderComplete',
-                    tabId: tabId
-                });
-
-                // 清理提醒和存储
-                activeReminders.delete(tabId);
-                await chrome.storage.local.remove([
-                    `reminder_${tabId}`,
-                    `reminderEnd_${tabId}`
-                ]);
-
-            } catch (error) {
-                console.error('Tab no longer exists:', error);
+        // 立即创建提醒窗口
+        chrome.tabs.get(tabId, (tab) => {
+            if (chrome.runtime.lastError) {
+                console.error('Failed to get tab:', chrome.runtime.lastError);
+                return;
             }
-        }, endTime - Date.now());
-
-        activeReminders.set(tabId, timerId);
+            
+            console.log('Found tab:', tab);
+            chrome.windows.create({
+                url: `reminder.html?tabId=${tabId}&message=${encodeURIComponent('Time to check this tab!')}&title=${encodeURIComponent(tab.title)}`,
+                type: 'popup',
+                width: 400,
+                height: 500
+            }, (window) => {
+                if (chrome.runtime.lastError) {
+                    console.error('Failed to create window:', chrome.runtime.lastError);
+                } else {
+                    console.log('Created reminder window:', window);
+                }
+            });
+        });
+        
+        // 返回响应表示消息已处理
+        sendResponse({ success: true });
     }
 });
 
