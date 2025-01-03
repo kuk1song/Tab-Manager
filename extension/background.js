@@ -317,20 +317,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case 'startReminder':
             const { tabId: reminderTabId } = message;
-            // 先处理状态变化
             handleBellStateChange(reminderTabId, false).then(() => {
-                // 然后创建提醒窗口
                 chrome.tabs.get(reminderTabId, (tab) => {
                     if (chrome.runtime.lastError) {
                         console.error('Failed to get tab:', chrome.runtime.lastError);
                         return;
                     }
-                    chrome.windows.create({
-                        url: `reminder.html?tabId=${reminderTabId}&message=${encodeURIComponent('Time to check this tab!')}&title=${encodeURIComponent(tab.title)}`,
-                        type: 'popup',
-                        width: 400,
-                        height: 500
-                    });
+                    createReminderWindow(tab);
                 });
             });
             break;
@@ -537,11 +530,7 @@ async function checkTabsForReminders() {
             if (now >= nextReminderTime) {
                 const analysis = tabData.analysis[tab.id];
                 const category = analysis?.category || 'other';
-                
-                // 创建提醒窗口
-                await createReminderWindow(tab, category);
-                
-                // 更新下次提醒时间
+                await createReminderWindow(tab);
                 reminderData.reminderTimes[tab.id] = now + reminderData.interval;
             }
         }
@@ -581,37 +570,30 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     chrome.storage.local.remove(`reminder_${tabId}`);
 });
 
-// 添加消息监听器
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    switch(message.type) {
-        case 'toggleCustomReminder':
-            const { tabId, isActive } = message;
-            if (isActive) {
-                reminderData.customReminderTabs.add(tabId);
-                if (reminderData.interval > 0) {
-                    const nextReminderTime = Date.now() + reminderData.interval;
-                    reminderData.reminderTimes[tabId] = nextReminderTime;
-                }
-            } else {
-                reminderData.customReminderTabs.delete(tabId);
-                delete reminderData.reminderTimes[tabId];
-            }
-            // 明确设置铃铛状态
-            chrome.storage.local.set({
-                [`reminder_${tabId}`]: isActive
-            });
-            saveReminderData();
-            break;
-
-        case 'startReminder':
-            // 当倒计时结束时，明确设置铃铛状态为 false
-            const { tabId: reminderTabId } = message;
-            chrome.storage.local.set({
-                [`reminder_${reminderTabId}`]: false
-            });
-            reminderData.customReminderTabs.delete(reminderTabId);
-            delete reminderData.reminderTimes[reminderTabId];
-            saveReminderData();
-            break;
-    }
-});
+// 创建一个统一的创建提醒窗口函数
+async function createReminderWindow(tab, message = 'Time to check this tab!') {
+    const screenWidth = screen.width;
+    const windowLeft = Math.floor(screenWidth - 420);
+    
+    console.log('Screen dimensions:', {
+        width: screenWidth,
+        height: screen.height
+    });
+    
+    console.log('Calculated window position:', {
+        left: windowLeft,
+        top: 20
+    });
+    
+    const window = await chrome.windows.create({
+        url: `reminder.html?tabId=${tab.id}&message=${encodeURIComponent(message)}&title=${encodeURIComponent(tab.title)}`,
+        type: 'popup',
+        width: 400,
+        height: 500,
+        left: windowLeft,
+        top: 20
+    });
+    
+    console.log('Created window:', window);
+    return window;
+}
