@@ -174,23 +174,19 @@ class TabManagerUI {
 
         if (timeLeft <= 0) {
             countdownSpan.textContent = 'Time\'s up!';
+            // 不在这里处理倒计时结束，让 background.js 处理
             return;
         }
 
-        // 计算时间
+        // 只负责显示倒计时
         const seconds = Math.floor(timeLeft / 1000);
         const minutes = Math.floor(seconds / 60);
         const hours = Math.floor(minutes / 60);
-
-        // 格式化显示
-        const display = hours > 0 
+        countdownSpan.textContent = hours > 0 
             ? `${hours}h ${minutes % 60}m ${seconds % 60}s`
-            : minutes > 0 
+            : minutes > 0
                 ? `${minutes}m ${seconds % 60}s`
                 : `${seconds}s`;
-
-        countdownSpan.textContent = display;
-        console.log('Updated countdown:', display); // 调试日志
     }
 
     async createTabElement(tab, analysis, idleScore, tabActivityData) {
