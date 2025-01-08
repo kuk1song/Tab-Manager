@@ -659,7 +659,6 @@ h1 span {
 /* 定义主题色变量 */
 :root {
     --primary: #7B68EE;      /* 中等紫色 */
-    --primary-dark: #6A5ACD;  /* 深紫色，用于悬浮 */
     --primary-light: #E6E6FA; /* 浅紫色，用于背景 */
     --accent: #9370DB;       /* 紫罗兰色，用于强调 */
     --text-primary: #2C2C2C;
