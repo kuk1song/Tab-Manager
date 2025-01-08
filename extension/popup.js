@@ -8,6 +8,32 @@ class TabManagerUI {
         this.refreshBtn = document.getElementById('refreshBtn');
         this.initializeEventListeners();
         this.countdownIntervals = new Map();
+
+        // 添加消息监听
+        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+            if (message.type === 'stateChanged') {
+                this.updateUIFromState(message.tabId, message.state);
+            }
+        });
+
+        // 添加消息监听
+        chrome.runtime.onMessage.addListener((message) => {
+            if (message.type === 'reminderComplete') {
+                // 只处理 UI 清理
+                const container = document.querySelector(`.reminder-container[data-tab-id="${message.tabId}"]`);
+                if (container) {
+                    const btn = container.querySelector('.reminder-toggle');
+                    const countdown = container.querySelector('.countdown');
+                    if (btn) {
+                        btn.classList.remove('active');
+                        btn.textContent = '🔕';
+                    }
+                    if (countdown) {
+                        countdown.remove();
+                    }
+                }
+            }
+        });
     }
 
     initializeEventListeners() {
@@ -512,6 +538,51 @@ class TabManagerUI {
         clearInterval(updateInterval);
         this.countdownIntervals.delete(tabId);
         countdownSpan.remove();
+    }
+
+    // 修改为类方法
+    async syncTabState(tabId) {
+        try {
+            const response = await chrome.runtime.sendMessage({
+                type: 'getState',
+                tabId: tabId
+            });
+            
+            if (response && response.state) {
+                this.updateUIFromState(tabId, response.state);
+            }
+        } catch (err) {
+            console.error('Failed to sync state:', err);
+        }
+    }
+
+    // 修改为类方法
+    updateUIFromState(tabId, state) {
+        const reminderContainer = document.querySelector(`.reminder-container[data-tab-id="${tabId}"]`);
+        if (!reminderContainer) return;
+
+        const reminderBtn = reminderContainer.querySelector('.reminder-toggle');
+        const countdownSpan = reminderContainer.querySelector('.countdown');
+
+        if (state.isActive) {
+            reminderBtn.classList.add('active');
+            reminderBtn.textContent = '🔔';
+            
+            if (state.endTime) {
+                if (!countdownSpan) {
+                    const newCountdownSpan = document.createElement('span');
+                    newCountdownSpan.className = 'countdown';
+                    reminderContainer.appendChild(newCountdownSpan);
+                    this.updateCountdownDisplay(newCountdownSpan, state.endTime);
+                }
+            }
+        } else {
+            reminderBtn.classList.remove('active');
+            reminderBtn.textContent = '🔕';
+            if (countdownSpan) {
+                countdownSpan.remove();
+            }
+        }
     }
 }
 

@@ -275,463 +275,158 @@ async function updateActiveTime(tabId) {
 // 添加一个全局的倒计时检查器
 let globalCheckInterval = null;
 
-// 启动全局检查器 - 这是核心函数
-function startGlobalChecker() {
-    if (globalCheckInterval) {
-        clearInterval(globalCheckInterval);
-    }
-
-    globalCheckInterval = setInterval(async () => {
+// 添加状态管理
+const TabStateManager = {
+    async setState(tabId, state) {
         try {
-            // 获取所有存储的数据
-            const data = await chrome.storage.local.get(null);
-            const now = Date.now();
-
-            // 检查所有活动的提醒
-            for (const [key, value] of Object.entries(data)) {
-                // 只检查激活状态的提醒
-                if (key.startsWith('reminder_') && value === true) {
-                    const tabId = key.split('_')[1];
-                    const endTimeKey = `reminderEnd_${tabId}`;
-                    const endTime = data[endTimeKey];
-
-                    // 如果时间到了，触发提醒
-                    if (endTime && endTime <= now) {
-                        console.log(`Time's up for tab ${tabId}, triggering reminder...`);
-                        try {
-                            const tab = await chrome.tabs.get(parseInt(tabId));
-                            
-                            // 创建提醒窗口
-                            await chrome.windows.create({
-                                url: `reminder.html?tabId=${tab.id}&message=${encodeURIComponent('Time to check this tab!')}&title=${encodeURIComponent(tab.title)}`,
-                                type: 'popup',
-                                width: 400,
-                                height: 500,
-                                left: Math.floor(screen.width - 420),
-                                top: 20
-                            });
-
-                            // 更新状态
-                            await chrome.storage.local.set({
-                                [`reminder_${tabId}`]: false
-                            });
-                            await chrome.storage.local.remove([
-                                `reminderEnd_${tabId}`,
-                                `reminderTime_${tabId}`
-                            ]);
-
-                            // 清理内存中的状态
-                            reminderData.customReminderTabs.delete(tabId);
-                            delete reminderData.reminderTimes[tabId];
-                            await saveReminderData();
-
-                        } catch (err) {
-                            console.error(`Failed to handle countdown for tab ${tabId}:`, err);
-                        }
-                    }
-                }
-            }
+            await chrome.storage.local.set({
+                [`reminder_${tabId}`]: state.isActive,
+                [`reminderEnd_${tabId}`]: state.endTime,
+                [`reminderStatus_${tabId}`]: state.status
+            });
+            console.log(`State updated for tab ${tabId}:`, state);
         } catch (err) {
-            console.error('Error in global checker:', err);
+            console.error('Failed to set state:', err);
         }
-    }, 1000); // 每秒检查一次
+    },
 
-    console.log('Global checker started');
-}
+    async getState(tabId) {
+        try {
+            const data = await chrome.storage.local.get([
+                `reminder_${tabId}`,
+                `reminderEnd_${tabId}`,
+                `reminderStatus_${tabId}`
+            ]);
+            return {
+                isActive: data[`reminder_${tabId}`] === true,
+                endTime: data[`reminderEnd_${tabId}`],
+                status: data[`reminderStatus_${tabId}`]
+            };
+        } catch (err) {
+            console.error('Failed to get state:', err);
+            return null;
+        }
+    },
 
-// 确保扩展启动时立即启动全局检查器
-chrome.runtime.onStartup.addListener(() => {
-    console.log('Extension starting up, initializing global checker...');
-    startGlobalChecker();
-});
-
-// 确保安装时也启动全局检查器
-chrome.runtime.onInstalled.addListener(() => {
-    console.log('Extension installed/updated, initializing global checker...');
-    startGlobalChecker();
-});
-
-// 修改 startCountdown 函数 - 简化它的职责
-function startCountdown(tabId, endTime) {
-    console.log(`Setting countdown for tab ${tabId}, will end at ${new Date(endTime)}`);
-    
-    // 确保全局检查器在运行
-    if (!globalCheckInterval) {
-        startGlobalChecker();
-    }
-}
-
-// 修改 handleBellStateChange 函数
-async function handleBellStateChange(tabId, isActive) {
-    console.log(`Changing bell state for tab ${tabId} to ${isActive}`);
-    
-    if (isActive) {
-        // 激活铃铛
-        const nextReminderTime = Date.now() + reminderData.interval;
-        
-        // 先更新存储
-        await chrome.storage.local.set({
-            [`reminder_${tabId}`]: true,
-            [`reminderEnd_${tabId}`]: nextReminderTime
-        });
-
-        // 然后更新内存中的状态
-        reminderData.customReminderTabs.add(tabId);
-        reminderData.reminderTimes[tabId] = nextReminderTime;
-        
-        // 启动倒计时检查
-        startCountdown(tabId, nextReminderTime);
-    } else {
-        // 停用铃铛
-        await chrome.storage.local.remove([
-            `reminder_${tabId}`,
-            `reminderEnd_${tabId}`,
-            `reminderTime_${tabId}`
-        ]);
-        
-        reminderData.customReminderTabs.delete(tabId);
-        delete reminderData.reminderTimes[tabId];
-    }
-    
-    await saveReminderData();
-}
-
-// 修改消息监听器
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('Background received message:', message);
-    
-    switch(message.type) {
-        case 'toggleCustomReminder':
-            const { tabId, isActive } = message;
-            handleBellStateChange(tabId, isActive);
-            break;
-        case 'stopTimer':
-            if (reminderData.customReminderTabs.has(message.tabId)) {
-                handleBellStateChange(message.tabId, false);
-            }
-            break;
-    }
-});
-
-// 删除其他重复的消息监听器和事件处理
-// 保留必要的事件监听器
-chrome.tabs.onRemoved.addListener((tabId) => {
-    handleBellStateChange(tabId, false);
-});
-
-// 修改存储变化监听器
-chrome.storage.onChanged.addListener((changes, namespace) => {
-    for (let key in changes) {
-        if (key.startsWith('reminder_')) {
-            const tabId = key.split('_')[1];
-            const newValue = changes[key].newValue;
-            console.log(`Reminder state changed for tab ${tabId}:`, newValue);
+    async clearState(tabId) {
+        try {
+            await chrome.storage.local.remove([
+                `reminder_${tabId}`,
+                `reminderEnd_${tabId}`,
+                `reminderStatus_${tabId}`
+            ]);
+            console.log(`State cleared for tab ${tabId}`);
+        } catch (err) {
+            console.error('Failed to clear state:', err);
         }
     }
-});
+};
 
-// 修改初始化铃铛状态的函数
-async function initializeBellState(tabId) {
-    console.log(`Initializing bell state for tab ${tabId}`);
-    
-    // 清除所有相关状态
-    await chrome.storage.local.remove([
-        `reminder_${tabId}`,
-        `reminderEnd_${tabId}`,
-        `reminderTime_${tabId}`
-    ]);
-    
-    // 清理内存中的状态
-    reminderData.customReminderTabs.delete(tabId);
-    delete reminderData.reminderTimes[tabId];
-    if (activeReminders.has(tabId)) {
-        clearTimeout(activeReminders.get(tabId));
-        activeReminders.delete(tabId);
-    }
-}
+// 添加倒计时管理器
+const ReminderManager = {
+    activeReminders: new Map(), // 存储所有活动的提醒
 
-// 在初始化函数中也使用它
-async function initializeReminderData() {
-    try {
-        const data = await chrome.storage.local.get(null);
-        const tabs = await chrome.tabs.query({});
-        
-        // 对所有标签页进行初始化
-        for (const tab of tabs) {
-            await initializeBellState(tab.id);
+    async startReminder(tabId, endTime) {
+        try {
+            // 保存提醒状态
+            await TabStateManager.setState(tabId, {
+                isActive: true,
+                endTime: endTime,
+                status: 'active'
+            });
+
+            // 设置检查器
+            const checkInterval = setInterval(async () => {
+                const timeLeft = endTime - Date.now();
+                
+                if (timeLeft <= 0) {
+                    // 直接触发提醒，不等待 popup 的响应
+                    await this.triggerReminder(tabId);
+                    clearInterval(checkInterval);
+                    this.activeReminders.delete(tabId);
+                }
+            }, 1000);
+
+            // 保存检查器引用
+            this.activeReminders.set(tabId, checkInterval);
+            
+            console.log(`Started reminder for tab ${tabId}, ending at ${new Date(endTime)}`);
+        } catch (err) {
+            console.error(`Failed to start reminder for tab ${tabId}:`, err);
         }
-        
-        console.log('Initialized all reminder data');
-    } catch (err) {
-        console.error('Error initializing reminder data:', err);
-    }
-}
+    },
 
-// 添加消息处理
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'stopTimer') {
-        // 停止指定标签页的计时并清理提醒记录
-        if (reminderData.customReminderTabs.has(message.tabId)) {
-            delete reminderData.reminderTimes[message.tabId];
-            activeReminders.delete(message.tabId); // 清理提醒记录
-            saveReminderData();
-        }
-    }
-    else if (message.type === 'updateReminderInterval') {
-        // 设置新的提醒时间
-        const multiplier = {
-            'm': 60 * 1000,
-            'h': 60 * 60 * 1000,
-            'd': 24 * 60 * 60 * 1000
-        };
-        
-        const interval = message.value * multiplier[message.unit];
-        reminderData.reminderTimes[message.tabId] = Date.now() + interval;
-        
-        if (!reminderData.customReminderTabs.has(message.tabId)) {
-            reminderData.customReminderTabs.add(message.tabId);
-        }
-        
-        saveReminderData();
-    }
-});
+    async triggerReminder(tabId) {
+        try {
+            console.log(`Triggering reminder for tab ${tabId}`);
+            
+            // 1. 获取标签页信息
+            const tab = await chrome.tabs.get(parseInt(tabId));
+            
+            // 2. 创建提醒窗口
+            await chrome.windows.create({
+                url: `reminder.html?tabId=${tab.id}&message=${encodeURIComponent('Time to check this tab!')}&title=${encodeURIComponent(tab.title)}`,
+                type: 'popup',
+                width: 400,
+                height: 500,
+                left: Math.floor(screen.width - 420),
+                top: 20
+            });
 
-// 格式化时间
-function formatTimeLeft(ms) {
-    const minutes = Math.floor(ms / (60 * 1000));
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    
-    if (days > 0) return `${days}d ${hours % 24}h`;
-    if (hours > 0) return `${hours}h ${minutes % 60}m`;
-    return `${minutes}m`;
-}
+            // 3. 更新状态
+            await TabStateManager.setState(tabId, {
+                isActive: false,
+                endTime: null,
+                status: 'ended'
+            });
 
-// 保存提醒数据到存储
-async function saveReminderData() {
-    const dataToSave = {
-        interval: reminderData.interval,
-        reminderTimes: reminderData.reminderTimes,
-        customReminderTabs: Array.from(reminderData.customReminderTabs)
-    };
-    
-    await chrome.storage.local.set({
-        reminderData: dataToSave
-    });
-
-    // 更新每个标签页的状态
-    const tabs = await chrome.tabs.query({});
-    for (const tab of tabs) {
-        const isActive = reminderData.customReminderTabs.has(tab.id);
-        await chrome.storage.local.set({
-            [`reminder_${tab.id}`]: isActive
-        });
-    }
-}
-
-// 更新提醒间隔
-async function updateReminderInterval(value, unit) {
-    if (value <= 0) {
-        reminderData.interval = 0;
-        reminderData.reminderTimes = {};
-        await saveReminderData();
-        return;
-    }
-
-    const multiplier = {
-        'm': 60 * 1000,
-        'h': 60 * 60 * 1000,
-        'd': 24 * 60 * 60 * 1000
-    };
-    
-    reminderData.interval = value * multiplier[unit];
-    
-    // 更新所有自定义提醒标签页的下次提醒时间
-    const tabs = await chrome.tabs.query({});
-    tabs.forEach(tab => {
-        if (reminderData.customReminderTabs.has(tab.id)) {
-            reminderData.reminderTimes[tab.id] = Date.now() + reminderData.interval;
-        }
-    });
-    
-    await saveReminderData();
-}
-
-// 切换自定义提醒
-async function toggleCustomReminder(tabId) {
-    if (reminderData.customReminderTabs.has(tabId)) {
-        reminderData.customReminderTabs.delete(tabId);
-        delete reminderData.reminderTimes[tabId];
-    } else {
-        reminderData.customReminderTabs.add(tabId);
-        if (reminderData.interval > 0) {
-            reminderData.reminderTimes[tabId] = Date.now() + reminderData.interval;
-        }
-    }
-    
-    await saveReminderData();
-}
-
-// 监听标签页关闭事件，清理对应的存储
-chrome.tabs.onRemoved.addListener((tabId) => {
-    // 当标签页关闭时，清理相关的提醒记录
-    activeReminders.delete(tabId);
-    if (reminderData.customReminderTabs.has(tabId)) {
-        reminderData.customReminderTabs.delete(tabId);
-        delete reminderData.reminderTimes[tabId];
-        saveReminderData();
-    }
-});
-
-// 监听标签页更新事件，保持提醒状态
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete') {
-        // 检查该标签页的铃铛状态
-        chrome.storage.local.get(`reminder_${tabId}`, (result) => {
-            const isReminderActive = result[`reminder_${tabId}`] === true;
-            if (isReminderActive) {
-                // 确保状态保持
-                chrome.storage.local.set({
-                    [`reminder_${tabId}`]: true
+            // 4. 如果 popup 打开，通知它更新 UI
+            try {
+                chrome.runtime.sendMessage({
+                    type: 'reminderComplete',
+                    tabId: tabId
                 });
+            } catch (err) {
+                // popup 未打开，忽略错误
             }
-        });
-    }
-});
 
-// 监听标签页关闭事件
-chrome.tabs.onRemoved.addListener((tabId) => {
-    // 清理关闭标签页的状态
-    chrome.storage.local.remove(`reminder_${tabId}`);
-});
-
-// 创建一个统一的创建提醒窗口函数
-async function createReminderWindow(tab, message = 'Time to check this tab!') {
-    const screenWidth = screen.width;
-    const windowLeft = Math.floor(screenWidth - 420);
-    
-    console.log('Screen dimensions:', {
-        width: screenWidth,
-        height: screen.height
-    });
-    
-    console.log('Calculated window position:', {
-        left: windowLeft,
-        top: 20
-    });
-    
-    const window = await chrome.windows.create({
-        url: `reminder.html?tabId=${tab.id}&message=${encodeURIComponent(message)}&title=${encodeURIComponent(tab.title)}`,
-        type: 'popup',
-        width: 400,
-        height: 500,
-        left: windowLeft,
-        top: 20
-    });
-    
-    console.log('Created window:', window);
-    return window;
-}
-
-// 在扩展启动时恢复所有活动的倒计时
-async function restoreCountdowns() {
-    try {
-        const data = await chrome.storage.local.get(null);
-        const now = Date.now();
-        console.log('Restoring countdowns, current data:', data);
-
-        for (const [key, value] of Object.entries(data)) {
-            if (key.startsWith('reminderEnd_')) {
-                const tabId = key.split('_')[1];
-                const endTime = value;
-
-                if (data[`reminder_${tabId}`] === true) {
-                    console.log(`Found active countdown for tab ${tabId}, end time: ${new Date(endTime)}`);
-                    try {
-                        const tab = await chrome.tabs.get(parseInt(tabId));
-                        console.log(`Starting countdown for restored tab:`, tab);
-                        startCountdown(tab.id, endTime);
-                    } catch (err) {
-                        console.error(`Failed to restore countdown for tab ${tabId}:`, err);
-                    }
-                }
-            }
+        } catch (err) {
+            console.error(`Failed to trigger reminder for tab ${tabId}:`, err);
         }
-    } catch (err) {
-        console.error('Error restoring countdowns:', err);
     }
-}
+};
 
-// 在文件开头添加
-let isExtensionInitialized = false;
-
-// 修改倒计时管理
-async function initializeTimers() {
-    if (isExtensionInitialized) return;
-    isExtensionInitialized = true;
-
-    console.log('Initializing timers...');
-    
-    try {
-        const data = await chrome.storage.local.get(null);
-        const now = Date.now();
-
-        // 遍历所有存储的数据，找到活动的提醒
-        for (const [key, value] of Object.entries(data)) {
-            if (key.startsWith('reminder_') && value === true) {
-                const tabId = key.split('_')[1];
-                const endTimeKey = `reminderEnd_${tabId}`;
-                const endTime = data[endTimeKey];
-
-                if (endTime) {
-                    try {
-                        const tab = await chrome.tabs.get(parseInt(tabId));
-                        console.log(`Initializing timer for tab ${tabId}, end time:`, new Date(endTime));
-                        startCountdown(tab.id, endTime);
-                    } catch (err) {
-                        console.error(`Failed to initialize timer for tab ${tabId}:`, err);
-                    }
-                }
-            }
-        }
-    } catch (err) {
-        console.error('Error initializing timers:', err);
-    }
-}
-
-// 在扩展启动和安装时初始化
-chrome.runtime.onStartup.addListener(initializeTimers);
-chrome.runtime.onInstalled.addListener(initializeTimers);
-
-// 确保浏览器启动时也会初始化
-chrome.runtime.onInstalled.addListener(() => {
-    chrome.runtime.getPlatformInfo(async () => {
-        await initializeTimers();
-    });
-});
-
-// 在文件开头添加持久化服务工作器
-chrome.runtime.onStartup.addListener(initializeExtension);
-chrome.runtime.onInstalled.addListener(initializeExtension);
-
-// 创建一个统一的初始化函数
+// 修改初始化函数
 async function initializeExtension() {
     console.log('Initializing extension...');
     
     try {
-        // 启动全局检查器
-        startGlobalChecker();
-        
-        // 初始化定时器
-        await initializeTimers();
-        // 恢复倒计时
-        await restoreCountdowns();
+        // 恢复所有活动的提醒
+        await ReminderManager.restoreActiveReminders();
         
         console.log('Extension initialized successfully');
     } catch (err) {
         console.error('Error initializing extension:', err);
     }
 }
+
+// 监听标签页关闭事件
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+    // 清理提醒
+    if (ReminderManager.activeReminders.has(tabId)) {
+        clearInterval(ReminderManager.activeReminders.get(tabId));
+        ReminderManager.activeReminders.delete(tabId);
+    }
+    await TabStateManager.clearState(tabId);
+});
+
+// 监听消息
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'startReminder') {
+        const { tabId, endTime } = message;
+        ReminderManager.startReminder(tabId, endTime);
+    }
+});
 
 // 确保扩展保持活动状态
 chrome.runtime.onSuspend.addListener(() => {
