@@ -330,12 +330,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
-// 删除其他重复的消息监听器和事件处理
-// 保留必要的事件监听器
-chrome.tabs.onRemoved.addListener((tabId) => {
-    handleBellStateChange(tabId, false);
-});
-
 // 修改存储变化监听器
 chrome.storage.onChanged.addListener((changes, namespace) => {
     for (let key in changes) {
@@ -412,17 +406,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         saveReminderData();
     }
 });
-
-// 格式化时间
-function formatTimeLeft(ms) {
-    const minutes = Math.floor(ms / (60 * 1000));
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    
-    if (days > 0) return `${days}d ${hours % 24}h`;
-    if (hours > 0) return `${hours}h ${minutes % 60}m`;
-    return `${minutes}m`;
-}
 
 // 保存提醒数据到存储
 async function saveReminderData() {
@@ -543,11 +526,6 @@ async function checkTabsForReminders() {
     }
 }
 
-// 监听标签页关闭事件，清理对应的存储
-chrome.tabs.onRemoved.addListener((tabId) => {
-    chrome.storage.local.remove(`reminder_${tabId}`);
-});
-
 // 监听标签页更新事件，保持提醒状态
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete') {
@@ -562,12 +540,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             }
         });
     }
-});
-
-// 监听标签页关闭事件
-chrome.tabs.onRemoved.addListener((tabId) => {
-    // 清理关闭标签页的状态
-    chrome.storage.local.remove(`reminder_${tabId}`);
 });
 
 // 创建一个统一的创建提醒窗口函数
