@@ -422,9 +422,14 @@ const messageHandler = (message, sender, sendResponse) => {
                 break;
             }
             case 'updateReminderInterval': {
+                // 第一种格式的处理：接收值和单位，然后转换
+                const { value, unit } = message;
+                updateReminderInterval(value, unit);  // 内部会转换为毫秒
+
+                // 第二种格式的处理：直接使用毫秒值
                 const { interval } = message;
-                reminderData.interval = interval;  // 使用传入的间隔时间
-                saveReminderData();
+                reminderData.interval = interval;
+
                 sendResponse({ status: 'success' });
                 break;
             }
@@ -448,7 +453,7 @@ const messageHandler = (message, sender, sendResponse) => {
     return true; // 保持消息通道开放
 };
 
-// 注册统一的消息监听器
+// 注册消息监听器
 chrome.runtime.onMessage.addListener(messageHandler);
 
 // 只保留一个存储变化监听器
