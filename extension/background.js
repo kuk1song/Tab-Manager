@@ -396,36 +396,73 @@ async function handleBellStateChange(tabId, isActive) {
     await saveReminderData();
 }
 
-// 修改消息监听器
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+// 统一的消息处理器
+const messageHandler = (message, sender, sendResponse) => {
     console.log('Background received message:', message);
-    
-    switch(message.type) {
-        case 'toggleCustomReminder':
-            const { tabId, isActive } = message;
-            handleBellStateChange(tabId, isActive);
-            break;
-        case 'stopTimer':
-            if (reminderData.customReminderTabs.has(message.tabId)) {
-                handleBellStateChange(message.tabId, false);
+
+    try {
+        switch (message.type) {
+            case 'startReminder': {
+                const { tabId, endTime, title } = message;
+                // 启动倒计时
+                startCountdown(tabId, endTime);
+                sendResponse({ status: 'success' });
+                break;
             }
-            break;
+            case 'stopTimer': {
+                const { tabId } = message;
+                // 停止倒计时
+                if (reminderData.customReminderTabs.has(tabId)) {
+                    handleBellStateChange(tabId, false);
+                    delete reminderData.reminderTimes[tabId];
+                    activeReminders.delete(tabId);
+                    saveReminderData();
+                }
+                sendResponse({ status: 'success' });
+                break;
+            }
+            case 'updateReminderInterval': {
+                const { value, unit } = message;
+                // 更新提醒间隔
+                updateReminderInterval(value, unit);
+                sendResponse({ status: 'success' });
+                break;
+            }
+            case 'toggleCustomReminder': {
+                const { tabId, isActive } = message;
+                // 切换提醒状态
+                handleBellStateChange(tabId, isActive);
+                sendResponse({ status: 'success' });
+                break;
+            }
+            default: {
+                console.warn('Unknown message type:', message.type);
+                sendResponse({ status: 'error', message: 'Unknown message type' });
+            }
+        }
+    } catch (error) {
+        console.error('Error handling message:', error);
+        sendResponse({ status: 'error', message: error.message });
     }
-});
 
-// 删除其他重复的消息监听器和事件处理
-// 保留必要的事件监听器
-chrome.tabs.onRemoved.addListener((tabId) => {
-    handleBellStateChange(tabId, false);
-});
+    return true; // 保持消息通道开放
+};
 
-// 修改存储变化监听器
+// 注册统一的消息监听器
+chrome.runtime.onMessage.addListener(messageHandler);
+
+// 只保留一个存储变化监听器
 chrome.storage.onChanged.addListener((changes, namespace) => {
     for (let key in changes) {
+        const { oldValue, newValue } = changes[key];
         if (key.startsWith('reminder_')) {
             const tabId = key.split('_')[1];
-            const newValue = changes[key].newValue;
-            console.log(`Reminder state changed for tab ${tabId}:`, newValue);
+            console.log(`Reminder state changed for tab ${tabId}:`, { oldValue, newValue });
+            
+            // 处理倒计时结束
+            if (oldValue === true && newValue === false) {
+                handleCountdownEnd(tabId);
+            }
         }
     }
 });
@@ -466,35 +503,6 @@ async function initializeReminderData() {
         console.error('Error initializing reminder data:', err);
     }
 }
-
-// 添加消息处理
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'stopTimer') {
-        // 停止指定标签页的计时并清理提醒记录
-        if (reminderData.customReminderTabs.has(message.tabId)) {
-            delete reminderData.reminderTimes[message.tabId];
-            activeReminders.delete(message.tabId); // 清理提醒记录
-            saveReminderData();
-        }
-    }
-    else if (message.type === 'updateReminderInterval') {
-        // 设置新的提醒时间
-        const multiplier = {
-            'm': 60 * 1000,
-            'h': 60 * 60 * 1000,
-            'd': 24 * 60 * 60 * 1000
-        };
-        
-        const interval = message.value * multiplier[message.unit];
-        reminderData.reminderTimes[message.tabId] = Date.now() + interval;
-        
-        if (!reminderData.customReminderTabs.has(message.tabId)) {
-            reminderData.customReminderTabs.add(message.tabId);
-        }
-        
-        saveReminderData();
-    }
-});
 
 // 格式化时间
 function formatTimeLeft(ms) {
@@ -610,16 +618,6 @@ async function createReminderWindow(tab, message = 'Time to check this tab!') {
     const screenWidth = screen.width;
     const windowLeft = Math.floor(screenWidth - 420);
     
-    console.log('Screen dimensions:', {
-        width: screenWidth,
-        height: screen.height
-    });
-    
-    console.log('Calculated window position:', {
-        left: windowLeft,
-        top: 20
-    });
-    
     const window = await chrome.windows.create({
         url: `reminder.html?tabId=${tab.id}&message=${encodeURIComponent(message)}&title=${encodeURIComponent(tab.title)}`,
         type: 'popup',
@@ -629,7 +627,6 @@ async function createReminderWindow(tab, message = 'Time to check this tab!') {
         top: 20
     });
     
-    console.log('Created window:', window);
     return window;
 }
 
@@ -752,13 +749,3 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // 立即初始化扩展
 initializeExtension();
-
-// 在 background.js 中添加
-chrome.storage.onChanged.addListener((changes, namespace) => {
-    for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
-        if (key.startsWith('reminder_') && oldValue === true && newValue === false) {
-            const tabId = key.split('_')[1];
-            handleCountdownEnd(tabId);
-        }
-    }
-});

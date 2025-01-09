@@ -486,16 +486,16 @@ class TabManagerUI {
         // 显示 Time's up! 并更新 UI
         countdownSpan.textContent = 'Time\'s up!';
         
-        // 恢复铃铛到未激活状态并永久存储
+        // 恢复铃铛到未激活状态
         const reminderBtn = reminderContainer.querySelector('.reminder-toggle');
         if (reminderBtn) {
             reminderBtn.classList.remove('active');
             reminderBtn.textContent = '🔕';
         }
 
-        // 永久存储铃铛的未激活状态
+        // 更新存储状态
         await chrome.storage.local.set({
-            [`reminder_${tabId}`]: false  // 明确设置为 false
+            [`reminder_${tabId}`]: false
         });
 
         // 清除倒计时相关的存储
@@ -503,12 +503,15 @@ class TabManagerUI {
             `reminderEnd_${tabId}`
         ]);
 
-        // 发送提醒消息并清理
+        // 发送完整的消息给 background
         chrome.runtime.sendMessage({
             type: 'startReminder',
-            tabId: tabId
+            tabId: tabId,
+            title: tab.title,
+            endTime: Date.now() // 立即触发
         });
 
+        // 清理倒计时
         clearInterval(updateInterval);
         this.countdownIntervals.delete(tabId);
         countdownSpan.remove();
