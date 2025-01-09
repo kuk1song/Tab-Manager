@@ -547,23 +547,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // 监听提醒时间输入
-document.getElementById('reminderInterval').addEventListener('change', (e) => {
+document.getElementById('reminderInterval').addEventListener('change', async (e) => {
     const value = parseInt(e.target.value);
     const unit = document.getElementById('timeUnit').value;
     
     // 转换为毫秒
+    let reminderInterval;
     switch(unit) {
         case 'm': reminderInterval = value * 60 * 1000; break;
         case 'h': reminderInterval = value * 60 * 60 * 1000; break;
         case 'd': reminderInterval = value * 24 * 60 * 60 * 1000; break;
     }
     
-    // 保存设置
-    chrome.storage.local.set({
-        savedReminderSetting: { value, unit },
-        reminderInterval: reminderInterval
+    // 统一使用 reminderInterval
+    await chrome.storage.local.set({
+        reminderInterval: reminderInterval,
+        savedReminderSetting: { value, unit }
     });
-    console.log('Saved reminder setting:', { value, unit, reminderInterval });
 });
 
 // 监听时间单位变化
@@ -588,19 +588,18 @@ document.getElementById('timeUnit').addEventListener('change', (e) => {
 
 // Go Remind! 按钮点击事件
 document.getElementById('refreshBtn').addEventListener('click', async () => {
-    console.log('Current reminderInterval:', reminderInterval); // 调试日志
+    const { reminderInterval } = await chrome.storage.local.get('reminderInterval');
     
     if (!reminderInterval || reminderInterval <= 0) {
         alert('Please set a valid reminder time first!');
         return;
     }
 
-    // 保存当前的提醒时间设置为活动设置
-    await chrome.storage.local.set({ 
-        activeReminderInterval: reminderInterval 
+    // 使用统一的 reminderInterval
+    await chrome.runtime.sendMessage({
+        type: 'updateReminderInterval',
+        interval: reminderInterval
     });
-    
-    console.log('Activated reminder interval:', reminderInterval); // 调试日志
 });
 
 // 添加消息监听器来处理提醒完成

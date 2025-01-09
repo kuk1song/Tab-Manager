@@ -366,20 +366,20 @@ async function handleBellStateChange(tabId, isActive) {
     console.log(`Changing bell state for tab ${tabId} to ${isActive}`);
     
     if (isActive) {
-        // 激活铃铛
-        const nextReminderTime = Date.now() + reminderData.interval;
+        const { reminderInterval } = await chrome.storage.local.get('reminderInterval');
+        if (!reminderInterval || reminderInterval <= 0) {
+            console.error('Invalid reminder interval');
+            return;
+        }
+
+        const nextReminderTime = Date.now() + reminderInterval;
         
-        // 先更新存储
         await chrome.storage.local.set({
             [`reminder_${tabId}`]: true,
             [`reminderEnd_${tabId}`]: nextReminderTime
         });
 
-        // 然后更新内存中的状态
         reminderData.customReminderTabs.add(tabId);
-        reminderData.reminderTimes[tabId] = nextReminderTime;
-        
-        // 启动倒计时检查
         startCountdown(tabId, nextReminderTime);
     } else {
         // 停用铃铛
@@ -422,9 +422,9 @@ const messageHandler = (message, sender, sendResponse) => {
                 break;
             }
             case 'updateReminderInterval': {
-                const { value, unit } = message;
-                // 更新提醒间隔
-                updateReminderInterval(value, unit);
+                const { interval } = message;
+                reminderData.interval = interval;  // 使用传入的间隔时间
+                saveReminderData();
                 sendResponse({ status: 'success' });
                 break;
             }
