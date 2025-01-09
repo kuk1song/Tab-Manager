@@ -518,6 +518,12 @@ class TabManagerUI {
     }
 }
 
+
+
+
+
+
+
 // 初始化时添加清理
 document.addEventListener('DOMContentLoaded', () => {
     const ui = new TabManagerUI();
@@ -588,6 +594,7 @@ document.getElementById('timeUnit').addEventListener('change', (e) => {
 
 // Go Remind! 按钮点击事件
 document.getElementById('refreshBtn').addEventListener('click', async () => {
+    // 获取保存的提醒间隔
     const { reminderInterval } = await chrome.storage.local.get('reminderInterval');
     
     if (!reminderInterval || reminderInterval <= 0) {
@@ -595,7 +602,7 @@ document.getElementById('refreshBtn').addEventListener('click', async () => {
         return;
     }
 
-    // 使用统一的 reminderInterval
+    // 发送消息到 background.js
     await chrome.runtime.sendMessage({
         type: 'updateReminderInterval',
         interval: reminderInterval

@@ -361,39 +361,24 @@ function startCountdown(tabId, endTime) {
     }
 }
 
-// 修改 handleBellStateChange 函数
+// 修改 handleBellStateChange 函数 - 这是核心处理函数
 async function handleBellStateChange(tabId, isActive) {
-    console.log(`Changing bell state for tab ${tabId} to ${isActive}`);
-    
     if (isActive) {
+        // 获取保存的提醒间隔
         const { reminderInterval } = await chrome.storage.local.get('reminderInterval');
-        if (!reminderInterval || reminderInterval <= 0) {
-            console.error('Invalid reminder interval');
-            return;
-        }
-
+        
+        // 计算结束时间
         const nextReminderTime = Date.now() + reminderInterval;
         
+        // 保存到 storage
         await chrome.storage.local.set({
-            [`reminder_${tabId}`]: true,
-            [`reminderEnd_${tabId}`]: nextReminderTime
+            [`reminder_${tabId}`]: true,              // 标记该标签页有活动的提醒
+            [`reminderEnd_${tabId}`]: nextReminderTime  // 保存结束时间
         });
 
-        reminderData.customReminderTabs.add(tabId);
+        // 启动倒计时
         startCountdown(tabId, nextReminderTime);
-    } else {
-        // 停用铃铛
-        await chrome.storage.local.remove([
-            `reminder_${tabId}`,
-            `reminderEnd_${tabId}`,
-            `reminderTime_${tabId}`
-        ]);
-        
-        reminderData.customReminderTabs.delete(tabId);
-        delete reminderData.reminderTimes[tabId];
     }
-    
-    await saveReminderData();
 }
 
 // 统一的消息处理器
@@ -422,14 +407,9 @@ const messageHandler = (message, sender, sendResponse) => {
                 break;
             }
             case 'updateReminderInterval': {
-                // 第一种格式的处理：接收值和单位，然后转换
                 const { value, unit } = message;
-                updateReminderInterval(value, unit);  // 内部会转换为毫秒
-
-                // 第二种格式的处理：直接使用毫秒值
-                const { interval } = message;
-                reminderData.interval = interval;
-
+                // 只保留一种处理方式
+                updateReminderInterval(value, unit);
                 sendResponse({ status: 'success' });
                 break;
             }
@@ -754,3 +734,15 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // 立即初始化扩展
 initializeExtension();
+
+// 注册消息监听器
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    switch (message.type) {
+        case 'updateReminderInterval': {
+            const { value, unit } = message;
+            // 处理消息
+            updateReminderInterval(value, unit);
+            break;
+        }
+    }
+});
