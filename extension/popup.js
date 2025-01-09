@@ -8,6 +8,20 @@ class TabManagerUI {
         this.refreshBtn = document.getElementById('refreshBtn');
         this.initializeEventListeners();
         this.countdownIntervals = new Map();
+        this.loadSavedSettings();
+    }
+
+    async loadSavedSettings() {
+        try {
+            const result = await chrome.storage.local.get('savedReminderSetting');
+            if (result.savedReminderSetting) {
+                const { value, unit } = result.savedReminderSetting;
+                this.reminderInterval.value = value;
+                this.timeUnit.value = unit;
+            }
+        } catch (error) {
+            console.error('Error loading saved settings:', error);
+        }
     }
 
     initializeEventListeners() {
@@ -25,25 +39,39 @@ class TabManagerUI {
         this.reminderInterval.addEventListener('change', async () => {
             const value = parseInt(this.reminderInterval.value);
             const unit = this.timeUnit.value;
-            await chrome.runtime.sendMessage({
-                type: 'updateReminderInterval',
-                value: value,
-                unit: unit
-            });
-            // 刷新显示
-            this.refreshTabs();
+            
+            // 转换为毫秒
+            let reminderInterval;
+            switch(unit) {
+                case 'm': reminderInterval = value * 60 * 1000; break;
+                case 'h': reminderInterval = value * 60 * 60 * 1000; break;
+                case 'd': reminderInterval = value * 24 * 60 * 60 * 1000; break;
+            }
+            
+            try {
+                // 保存设置
+                await chrome.storage.local.set({
+                    reminderInterval: reminderInterval,
+                    savedReminderSetting: { value, unit }
+                });
+
+                // 通知 background.js
+                await chrome.runtime.sendMessage({
+                    type: 'updateReminderInterval',
+                    value: value,
+                    unit: unit
+                });
+                
+                this.refreshTabs();
+            } catch (error) {
+                console.error('Error saving settings:', error);
+            }
         });
 
-        this.timeUnit.addEventListener('change', async () => {
-            const value = parseInt(this.reminderInterval.value);
-            const unit = this.timeUnit.value;
-            await chrome.runtime.sendMessage({
-                type: 'updateReminderInterval',
-                value: value,
-                unit: unit
-            });
-            // 刷新显示
-            this.refreshTabs();
+        // 时间单位变化事件
+        this.timeUnit.addEventListener('change', () => {
+            // 触发 reminderInterval 的 change 事件
+            this.reminderInterval.dispatchEvent(new Event('change'));
         });
 
         // 分类过滤器事件
@@ -518,116 +546,14 @@ class TabManagerUI {
     }
 }
 
-
-
-
-
-
-
-// 初始化时添加清理
+// 初始化
 document.addEventListener('DOMContentLoaded', () => {
     const ui = new TabManagerUI();
     ui.init();
     
-    // 在窗口关闭时清理
     window.addEventListener('unload', () => {
         ui.cleanup();
     });
 });
 
-// 初始化时加载保存的提醒时间
-document.addEventListener('DOMContentLoaded', async () => {
-    const result = await chrome.storage.local.get('savedReminderSetting');
-    if (result.savedReminderSetting) {
-        const { value, unit } = result.savedReminderSetting;
-        document.getElementById('reminderInterval').value = value;
-        document.getElementById('timeUnit').value = unit;
-        
-        // 恢复 reminderInterval 的值
-        switch(unit) {
-            case 'm': reminderInterval = value * 60 * 1000; break;
-            case 'h': reminderInterval = value * 60 * 60 * 1000; break;
-            case 'd': reminderInterval = value * 24 * 60 * 60 * 1000; break;
-        }
-    }
-});
-
-// 监听提醒时间输入
-document.getElementById('reminderInterval').addEventListener('change', async (e) => {
-    const value = parseInt(e.target.value);
-    const unit = document.getElementById('timeUnit').value;
-    
-    // 转换为毫秒
-    let reminderInterval;
-    switch(unit) {
-        case 'm': reminderInterval = value * 60 * 1000; break;
-        case 'h': reminderInterval = value * 60 * 60 * 1000; break;
-        case 'd': reminderInterval = value * 24 * 60 * 60 * 1000; break;
-    }
-    
-    // 统一使用 reminderInterval
-    await chrome.storage.local.set({
-        reminderInterval: reminderInterval,
-        savedReminderSetting: { value, unit }
-    });
-});
-
-// 监听时间单位变化
-document.getElementById('timeUnit').addEventListener('change', (e) => {
-    const value = parseInt(document.getElementById('reminderInterval').value);
-    const unit = e.target.value;
-    
-    // 转换为毫秒
-    switch(unit) {
-        case 'm': reminderInterval = value * 60 * 1000; break;
-        case 'h': reminderInterval = value * 60 * 60 * 1000; break;
-        case 'd': reminderInterval = value * 24 * 60 * 60 * 1000; break;
-    }
-    
-    // 保存设置
-    chrome.storage.local.set({
-        savedReminderSetting: { value, unit },
-        reminderInterval: reminderInterval
-    });
-    console.log('Saved reminder setting:', { value, unit, reminderInterval });
-});
-
-// Go Remind! 按钮点击事件
-document.getElementById('refreshBtn').addEventListener('click', async () => {
-    // 获取保存的提醒间隔
-    const { reminderInterval } = await chrome.storage.local.get('reminderInterval');
-    
-    if (!reminderInterval || reminderInterval <= 0) {
-        alert('Please set a valid reminder time first!');
-        return;
-    }
-
-    // 发送消息到 background.js
-    await chrome.runtime.sendMessage({
-        type: 'updateReminderInterval',
-        interval: reminderInterval
-    });
-});
-
-// 添加消息监听器来处理提醒完成
-chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'reminderComplete') {
-        const { tabId } = message;
-        
-        // 找到对应的标签页元素
-        const reminderContainer = document.querySelector(`.reminder-container[data-tab-id="${tabId}"]`);
-        if (reminderContainer) {
-            const reminderBtn = reminderContainer.querySelector('.reminder-toggle');
-            const countdownSpan = reminderContainer.querySelector('.countdown');
-
-            // 更新 UI
-            if (reminderBtn) {
-                reminderBtn.classList.remove('active');
-                reminderBtn.textContent = '🔕';
-            }
-            if (countdownSpan) {
-                countdownSpan.remove();
-            }
-        }
-    }
-});
+// 删除重复的全局监听器

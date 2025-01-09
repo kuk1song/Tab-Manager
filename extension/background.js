@@ -734,15 +734,3 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // 立即初始化扩展
 initializeExtension();
-
-// 注册消息监听器
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    switch (message.type) {
-        case 'updateReminderInterval': {
-            const { value, unit } = message;
-            // 处理消息
-            updateReminderInterval(value, unit);
-            break;
-        }
-    }
-});
