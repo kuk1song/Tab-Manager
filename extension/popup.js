@@ -63,9 +63,14 @@ class TabManagerUI {
             const reminderInterval = value * multiplier[unit];
             
             try {
-                // 保存用户设置
+                // 保存用户设置的原始值
                 await chrome.storage.local.set({
                     savedReminderSetting: { value, unit }
+                });
+
+                // 保存转换后的毫秒值 
+                await chrome.storage.local.set({
+                    reminderInterval: reminderInterval
                 });
                 
                 // 发送到 background 进行倒计时设置
@@ -362,7 +367,9 @@ class TabManagerUI {
 
                     if (isActive) {
                         // 激活铃铛
-                        const { activeReminderInterval } = await chrome.storage.local.get('reminderInterval');
+                        const result = await chrome.storage.local.get('reminderInterval');
+                        const activeReminderInterval = result.reminderInterval;
+                        
                         if (!activeReminderInterval) {
                             alert('Please set a reminder time and click "Go Remind!" first');
                             return;

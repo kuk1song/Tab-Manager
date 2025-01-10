@@ -355,8 +355,11 @@ function startGlobalChecker() {
 
                     // 检查是否到达结束时间
                     if (typeof endTime === 'number' && !isNaN(endTime) && endTime <= now) {
-                        // 时间到了，触发提醒
-                        await triggerReminder(tabId);
+                        // 时间到了，只需要更新状态
+                        await chrome.storage.local.set({
+                            [`reminder_${tabId}`]: false
+                        });
+                        // storage 的变化会触发 onChanged 监听器
                     }
                 }
             }
@@ -368,10 +371,16 @@ function startGlobalChecker() {
     console.log('New global checker interval created:', globalCheckInterval);
 }
 
-// 新增一个触发提醒的独立函数
-async function triggerReminder(tabId) {
+// 触发提醒的独立函数
+async function handleCountdownEnd(tabId) {
+    console.log(`Handling countdown end for tab ${tabId}`);
     try {
         const tab = await chrome.tabs.get(parseInt(tabId));
+        
+        // 获取当前窗口信息来定位提醒窗口
+        const currentWindow = await chrome.windows.getCurrent();
+        const left = currentWindow ? (currentWindow.left + currentWindow.width - 420) : 100;
+        const top = currentWindow ? currentWindow.top + 20 : 100;
         
         // 创建提醒窗口
         await chrome.windows.create({
@@ -379,8 +388,8 @@ async function triggerReminder(tabId) {
             type: 'popup',
             width: 400,
             height: 500,
-            left: Math.floor(screen.width - 420),
-            top: 20
+            left: left,
+            top: top
         });
 
         // 清理状态
@@ -530,7 +539,7 @@ const messageHandler = async (message, sender, sendResponse) => {
 // 注册消息监听器
 chrome.runtime.onMessage.addListener(messageHandler);
 
-// 只保留一个存储变化监听器
+// 存储变化监听器
 chrome.storage.onChanged.addListener((changes, namespace) => {
     for (let key in changes) {
         const { oldValue, newValue } = changes[key];
@@ -538,7 +547,7 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
             const tabId = key.split('_')[1];
             console.log(`Reminder state changed for tab ${tabId}:`, { oldValue, newValue });
             
-            // 处理倒计时结束
+            // 统一在这里处理倒计时结束
             if (oldValue === true && newValue === false) {
                 handleCountdownEnd(tabId);
             }
