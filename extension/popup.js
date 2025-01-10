@@ -6,6 +6,7 @@ class TabManagerUI {
         this.reminderInterval = document.getElementById('reminderInterval');
         this.timeUnit = document.getElementById('timeUnit');
         this.refreshBtn = document.getElementById('refreshBtn');
+        this.goRemindBtn = document.getElementById('refreshBtn');
         this.initializeEventListeners();
         this.countdownIntervals = new Map();
         this.loadSavedSettings();
@@ -35,30 +36,17 @@ class TabManagerUI {
             }
         });
 
-        // 提醒间隔设置事件
-        this.reminderInterval.addEventListener('change', async () => {
-            const value = parseInt(this.reminderInterval.value);
-            const unit = this.timeUnit.value;
-            
-            // 直接在这里计算毫秒值
-            const multiplier = {
-                'm': 60 * 1000,
-                'h': 60 * 60 * 1000,
-                'd': 24 * 60 * 60 * 1000
-            };
-            const reminderInterval = value * multiplier[unit];
-            
-            // 发送计算好的毫秒值
-            await chrome.runtime.sendMessage({
-                type: 'updateReminderInterval',
-                interval: reminderInterval  // 直接传递毫秒值
+        // 监听倒计时设置/更改事件
+        this.reminderInterval.addEventListener('change', () => {
+            console.log('Reminder interval changed:', {
+                value: this.reminderInterval.value,
+                unit: this.timeUnit.value
             });
         });
 
         // 时间单位变化事件
         this.timeUnit.addEventListener('change', () => {
-            // 触发 reminderInterval 的 change 事件
-            this.reminderInterval.dispatchEvent(new Event('change'));
+            console.log('Time unit changed:', this.timeUnit.value);
         });
 
         // 分类过滤器事件
@@ -66,6 +54,47 @@ class TabManagerUI {
         
         // 排序方式事件
         this.sortBy.addEventListener('change', () => this.refreshTabs());
+
+        // 添加 Go Remind 按钮点击事件
+        this.goRemindBtn.addEventListener('click', async () => {
+            const value = parseInt(this.reminderInterval.value);
+            const unit = this.timeUnit.value;
+            
+            if (!value || value <= 0) {
+                alert('Please enter a valid reminder time');
+                return;
+            }
+
+            // 计算毫秒值
+            const multiplier = {
+                'm': 60 * 1000,
+                'h': 60 * 60 * 1000,
+                'd': 24 * 60 * 60 * 1000
+            };
+            const reminderInterval = value * multiplier[unit];
+            
+            try {
+                // 保存用户设置
+                await chrome.storage.local.set({
+                    savedReminderSetting: { value, unit }
+                });
+                
+                // 发送到 background 进行倒计时设置
+                await chrome.runtime.sendMessage({
+                    type: 'updateReminderInterval',
+                    interval: reminderInterval
+                });
+
+                console.log('Reminder settings saved and activated:', {
+                    value,
+                    unit,
+                    reminderInterval
+                });
+            } catch (err) {
+                console.error('Failed to save reminder settings:', err);
+                alert('Failed to set reminder. Please try again.');
+            }
+        });
     }
 
     async refreshTabs() {
@@ -499,7 +528,7 @@ class TabManagerUI {
     // 在 TabManagerUI 类中添加一个方法来处理倒计时结束
     async handleCountdownEnd(tabId, tab, countdownSpan, reminderContainer, updateInterval) {
         // 显示 Time's up! 并更新 UI
-        countdownSpan.textContent = 'Time\'s up!';
+        // countdownSpan.textContent = 'Time\'s up!';
         
         // 恢复铃铛到未激活状态
         const reminderBtn = reminderContainer.querySelector('.reminder-toggle');
@@ -519,12 +548,12 @@ class TabManagerUI {
         ]);
 
         // 发送完整的消息给 background
-        chrome.runtime.sendMessage({
-            type: 'startReminder',
-            tabId: tabId,
-            title: tab.title,
-            endTime: Date.now() // 立即触发
-        });
+        // chrome.runtime.sendMessage({
+        //     type: 'startReminder',
+        //     tabId: tabId,
+        //     title: tab.title,
+        //     endTime: Date.now() // 立即触发
+        // });
 
         // 清理倒计时
         clearInterval(updateInterval);

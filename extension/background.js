@@ -1,5 +1,9 @@
-// 在文件顶部添加
-console.log('Background script loaded');
+console.log('Background script loaded:', new Date().toISOString());
+
+// 确保 Service Worker 注册成功
+if ('serviceWorker' in navigator) {
+    console.log('Service Worker supported');
+}
 
 // 初始化数据结构
 let tabData = {
@@ -275,80 +279,159 @@ async function updateActiveTime(tabId) {
 // 添加一个全局的倒计时检查器
 let globalCheckInterval = null;
 
-// 启动全局检查器 - 这是核心函数
-function startGlobalChecker() {
-    if (globalCheckInterval) {
-        clearInterval(globalCheckInterval);
+// 全局变量声明
+let isInitialized = false;
+
+// 统一的初始化函数
+async function initializeExtension() {
+    if (isInitialized) {
+        console.log('Extension already initialized, skipping...');
+        return;
     }
 
+    console.log('Starting extension initialization:', new Date().toISOString());
+    
+    try {
+        // 确保只有一个全局检查器在运行
+        if (globalCheckInterval) {
+            console.log('Clearing existing global checker:', globalCheckInterval);
+            clearInterval(globalCheckInterval);
+            globalCheckInterval = null;
+        }
+        
+        console.log('About to start global checker...');
+        // 启动全局检查器
+        startGlobalChecker();
+        
+        // 初始化定时器和恢复倒计时
+        console.log('Initializing timers...');
+        await initializeTimers();
+        console.log('Restoring countdowns...');
+        await restoreCountdowns();
+        
+        isInitialized = true;
+        console.log('Extension initialization completed successfully');
+    } catch (err) {
+        console.error('Error during extension initialization:', err);
+        isInitialized = false;
+    }
+}
+
+// 修改 startGlobalChecker 函数开头
+function startGlobalChecker() {
+    console.log('startGlobalChecker called at:', new Date().toISOString());
+    
+    if (globalCheckInterval) {
+        console.log('Existing interval found:', globalCheckInterval);
+        clearInterval(globalCheckInterval);
+        globalCheckInterval = null;
+    }
+
+    console.log('Creating new global checker interval...');
     globalCheckInterval = setInterval(async () => {
+        console.log('Global checker tick:', new Date().toISOString());
         try {
-            // 获取所有存储的数据
             const data = await chrome.storage.local.get(null);
             const now = Date.now();
 
-            // 检查所有活动的提醒
+            // 遍历所有激活的提醒
             for (const [key, value] of Object.entries(data)) {
-                // 只检查激活状态的提醒
+                // 检查是否是激活的提醒
                 if (key.startsWith('reminder_') && value === true) {
                     const tabId = key.split('_')[1];
                     const endTimeKey = `reminderEnd_${tabId}`;
                     const endTime = data[endTimeKey];
 
-                    // 如果时间到了，触发提醒
+                    // 详细记录 endTime 的状态
+                        console.log(`Checking tab ${tabId}:`, {
+                            endTime,
+                            type: typeof endTime,
+                            isNumber: typeof endTime === 'number',
+                            isValid: !isNaN(endTime),
+                            now,
+                            timeLeft: endTime - now,
+                            shouldTrigger: typeof endTime === 'number' && !isNaN(endTime) && endTime <= now
+                        });
+
+                    // 检查是否到达结束时间
                     if (typeof endTime === 'number' && !isNaN(endTime) && endTime <= now) {
-                        console.log(`Time's up for tab ${tabId}, triggering reminder...`);
-                        try {
-                            const tab = await chrome.tabs.get(parseInt(tabId));
-                            
-                            // 创建提醒窗口
-                            await chrome.windows.create({
-                                url: `reminder.html?tabId=${tab.id}&message=${encodeURIComponent('Time to check this tab!')}&title=${encodeURIComponent(tab.title)}`,
-                                type: 'popup',
-                                width: 400,
-                                height: 500,
-                                left: Math.floor(screen.width - 420),
-                                top: 20
-                            });
-
-                            // 更新状态
-                            await chrome.storage.local.set({
-                                [`reminder_${tabId}`]: false
-                            });
-                            await chrome.storage.local.remove([
-                                `reminderEnd_${tabId}`,
-                                `reminderTime_${tabId}`
-                            ]);
-
-                            // 清理内存中的状态
-                            reminderData.customReminderTabs.delete(tabId);
-                            delete reminderData.reminderTimes[tabId];
-                            await saveReminderData();
-
-                        } catch (err) {
-                            console.error(`Failed to handle countdown for tab ${tabId}:`, err);
-                        }
+                        // 时间到了，触发提醒
+                        await triggerReminder(tabId);
                     }
                 }
             }
         } catch (err) {
             console.error('Error in global checker:', err);
         }
-    }, 1000); // 每秒检查一次
+    }, 1000);
 
-    console.log('Global checker started');
+    console.log('New global checker interval created:', globalCheckInterval);
 }
 
-// 确保扩展启动时立即启动全局检查器
+// 新增一个触发提醒的独立函数
+async function triggerReminder(tabId) {
+    try {
+        const tab = await chrome.tabs.get(parseInt(tabId));
+        
+        // 创建提醒窗口
+        await chrome.windows.create({
+            url: `reminder.html?tabId=${tab.id}&message=${encodeURIComponent('Time to check this tab!')}&title=${encodeURIComponent(tab.title)}`,
+            type: 'popup',
+            width: 400,
+            height: 500,
+            left: Math.floor(screen.width - 420),
+            top: 20
+        });
+
+        // 清理状态
+        await chrome.storage.local.set({
+            [`reminder_${tabId}`]: false
+        });
+        await chrome.storage.local.remove([
+            `reminderEnd_${tabId}`,
+            `reminderTime_${tabId}`
+        ]);
+
+        // 清理内存中的状态
+        reminderData.customReminderTabs.delete(tabId);
+        delete reminderData.reminderTimes[tabId];
+        await saveReminderData();
+
+    } catch (err) {
+        console.error(`Failed to trigger reminder for tab ${tabId}:`, err);
+    }
+}
+
+// 确保在各种情况下都能初始化
 chrome.runtime.onStartup.addListener(() => {
-    console.log('Extension starting up, initializing global checker...');
-    startGlobalChecker();
+    console.log('onStartup triggered');
+    initializeExtension();
 });
 
-// 确保安装时也启动全局检查器
 chrome.runtime.onInstalled.addListener(() => {
-    console.log('Extension installed/updated, initializing global checker...');
-    startGlobalChecker();
+    console.log('onInstalled triggered');
+    initializeExtension();
+});
+
+// 立即初始化
+console.log('Immediate initialization triggered');
+initializeExtension();
+
+// 添加消息监听器来手动触发初始化（用于调试）
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'checkInitialization') {
+        console.log('Initialization status:', {
+            isInitialized,
+            hasGlobalInterval: !!globalCheckInterval,
+            globalIntervalId: globalCheckInterval
+        });
+        sendResponse({
+            isInitialized,
+            hasGlobalInterval: !!globalCheckInterval,
+            globalIntervalId: globalCheckInterval
+        });
+    }
+    return true;
 });
 
 // 修改 startCountdown 函数 - 简化它的职责
@@ -387,13 +470,13 @@ const messageHandler = async (message, sender, sendResponse) => {
 
     try {
         switch (message.type) {
-            case 'startReminder': {
-                const { tabId, endTime, title } = message;
-                // 启动倒计时
-                startCountdown(tabId, endTime);
-                sendResponse({ status: 'success' });
-                break;
-            }
+            // case 'startReminder': {
+            //     const { tabId, endTime, title } = message;
+            //     // 启动倒计时
+            //     startCountdown(tabId, endTime);
+            //     sendResponse({ status: 'success' });
+            //     break;
+            // }
             case 'stopTimer': {
                 const { tabId } = message;
                 // 停止倒计时
@@ -627,13 +710,10 @@ async function restoreCountdowns() {
     }
 }
 
-// 在文件开头添加
-let isExtensionInitialized = false;
-
 // 修改倒计时管理
 async function initializeTimers() {
-    if (isExtensionInitialized) return;
-    isExtensionInitialized = true;
+    if (isInitialized) return;
+    isInitialized = true;
 
     console.log('Initializing timers...');
     
@@ -679,41 +759,23 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onStartup.addListener(initializeExtension);
 chrome.runtime.onInstalled.addListener(initializeExtension);
 
-// 创建一个统一的初始化函数
-async function initializeExtension() {
-    console.log('Initializing extension...');
-    
-    try {
-        // 启动全局检查器
-        startGlobalChecker();
-        
-        // 初始化定时器
-        await initializeTimers();
-        // 恢复倒计时
-        await restoreCountdowns();
-        
-        console.log('Extension initialized successfully');
-    } catch (err) {
-        console.error('Error initializing extension:', err);
-    }
-}
-
 // 确保扩展保持活动状态
 chrome.runtime.onSuspend.addListener(() => {
-    console.log('Extension is being suspended, saving state...');
+    console.log('Extension is being suspended, creating keepAlive alarm...');
     if (globalCheckInterval) {
         clearInterval(globalCheckInterval);
     }
     chrome.alarms.create('keepAlive', { periodInMinutes: 1 });
 });
 
+// 通过 alarm 保持扩展活跃
 chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'keepAlive') {
-        if (!globalCheckInterval) {
-            initializeExtension();
-        }
+    if (alarm.name === 'keepAlive' && !globalCheckInterval) {
+        console.log('Restarting extension via keepAlive alarm');
+        initializeExtension();
     }
 });
 
-// 立即初始化扩展
+// 立即初始化
+console.log('Background script loaded, starting initialization');
 initializeExtension();
