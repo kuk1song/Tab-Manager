@@ -296,7 +296,7 @@ function startGlobalChecker() {
                     const endTime = data[endTimeKey];
 
                     // 如果时间到了，触发提醒
-                    if (endTime && endTime <= now) {
+                    if (typeof endTime === 'number' && !isNaN(endTime) && endTime <= now) {
                         console.log(`Time's up for tab ${tabId}, triggering reminder...`);
                         try {
                             const tab = await chrome.tabs.get(parseInt(tabId));

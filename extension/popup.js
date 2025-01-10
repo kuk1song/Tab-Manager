@@ -240,14 +240,14 @@ class TabManagerUI {
             
             // 计算倒计时
             let countdownText = '';
-        if (isCustomReminder && hasInterval && nextReminderTime) {
-            const timeLeft = nextReminderTime - Date.now();
-            if (timeLeft > 0) {
-                countdownText = this.formatTimeLeft(timeLeft);
-            } else {
-                countdownText = 'Now';
-            }
-        }
+            if (isCustomReminder && hasInterval && nextReminderTime) {
+                const timeLeft = nextReminderTime - Date.now();
+                if (timeLeft > 0) {
+                     countdownText = this.formatTimeLeft(timeLeft);
+                 } else {
+                  countdownText = 'Now';
+                 }
+             }
     
             // 安全地获取标签页数据
             const lastActive = safeTabActivityData.lastActive[tab.id];
@@ -542,5 +542,3 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.cleanup();
     });
 });
-
-// 删除重复的全局监听器
