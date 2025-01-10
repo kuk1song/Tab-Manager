@@ -382,7 +382,7 @@ async function handleBellStateChange(tabId, isActive) {
 }
 
 // 统一的消息处理器
-const messageHandler = (message, sender, sendResponse) => {
+const messageHandler = async (message, sender, sendResponse) => {
     console.log('Background received message:', message);
 
     try {
@@ -407,9 +407,20 @@ const messageHandler = (message, sender, sendResponse) => {
                 break;
             }
             case 'updateReminderInterval': {
-                const { value, unit } = message;
-                // 只保留一种处理方式
-                updateReminderInterval(value, unit);
+                const { interval } = message;  // 直接接收毫秒值
+                
+                // 更新全局提醒间隔
+                reminderData.interval = interval;
+                
+                // 更新所有活动标签页的提醒时间
+                const tabs = await chrome.tabs.query({});
+                tabs.forEach(tab => {
+                    if (reminderData.customReminderTabs.has(tab.id)) {
+                        reminderData.reminderTimes[tab.id] = Date.now() + interval;
+                    }
+                });
+                
+                await saveReminderData();
                 sendResponse({ status: 'success' });
                 break;
             }
@@ -520,34 +531,6 @@ async function saveReminderData() {
             [`reminder_${tab.id}`]: isActive
         });
     }
-}
-
-// 更新提醒间隔
-async function updateReminderInterval(value, unit) {
-    if (value <= 0) {
-        reminderData.interval = 0;
-        reminderData.reminderTimes = {};
-        await saveReminderData();
-        return;
-    }
-
-    const multiplier = {
-        'm': 60 * 1000,
-        'h': 60 * 60 * 1000,
-        'd': 24 * 60 * 60 * 1000
-    };
-    
-    reminderData.interval = value * multiplier[unit];
-    
-    // 更新所有自定义提醒标签页的下次提醒时间
-    const tabs = await chrome.tabs.query({});
-    tabs.forEach(tab => {
-        if (reminderData.customReminderTabs.has(tab.id)) {
-            reminderData.reminderTimes[tab.id] = Date.now() + reminderData.interval;
-        }
-    });
-    
-    await saveReminderData();
 }
 
 // 切换自定义提醒

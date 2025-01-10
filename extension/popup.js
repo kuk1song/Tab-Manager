@@ -40,32 +40,19 @@ class TabManagerUI {
             const value = parseInt(this.reminderInterval.value);
             const unit = this.timeUnit.value;
             
-            // 转换为毫秒
-            let reminderInterval;
-            switch(unit) {
-                case 'm': reminderInterval = value * 60 * 1000; break;
-                case 'h': reminderInterval = value * 60 * 60 * 1000; break;
-                case 'd': reminderInterval = value * 24 * 60 * 60 * 1000; break;
-            }
+            // 直接在这里计算毫秒值
+            const multiplier = {
+                'm': 60 * 1000,
+                'h': 60 * 60 * 1000,
+                'd': 24 * 60 * 60 * 1000
+            };
+            const reminderInterval = value * multiplier[unit];
             
-            try {
-                // 保存设置
-                await chrome.storage.local.set({
-                    reminderInterval: reminderInterval,
-                    savedReminderSetting: { value, unit }
-                });
-
-                // 通知 background.js
-                await chrome.runtime.sendMessage({
-                    type: 'updateReminderInterval',
-                    value: value,
-                    unit: unit
-                });
-                
-                this.refreshTabs();
-            } catch (error) {
-                console.error('Error saving settings:', error);
-            }
+            // 发送计算好的毫秒值
+            await chrome.runtime.sendMessage({
+                type: 'updateReminderInterval',
+                interval: reminderInterval  // 直接传递毫秒值
+            });
         });
 
         // 时间单位变化事件
