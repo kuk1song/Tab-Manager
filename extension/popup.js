@@ -5,7 +5,6 @@ class TabManagerUI {
         this.sortBy = document.getElementById('sortBy');
         this.reminderInterval = document.getElementById('reminderInterval');
         this.timeUnit = document.getElementById('timeUnit');
-        this.refreshBtn = document.getElementById('refreshBtn');
         this.goRemindBtn = document.getElementById('refreshBtn');
         this.initializeEventListeners();
         this.countdownIntervals = new Map();
@@ -26,16 +25,6 @@ class TabManagerUI {
     }
 
     initializeEventListeners() {
-        // 刷新按钮事件
-        this.refreshBtn.addEventListener('click', async () => {
-            this.refreshBtn.disabled = true;
-            try {
-                await this.refreshTabs();
-            } finally {
-                this.refreshBtn.disabled = false;
-            }
-        });
-
         // 监听倒计时设置/更改事件
         this.reminderInterval.addEventListener('change', () => {
             console.log('Reminder interval changed:', {
@@ -242,7 +231,7 @@ class TabManagerUI {
             const reminderData = await chrome.storage.local.get([
                 `reminder_${tab.id}`,
                 `reminderEnd_${tab.id}`,
-                'activeReminderInterval'
+                'reminderInterval'
             ]);
             
             // 明确检查是否为 true，如果是 false 或不存在都视为未激活
@@ -373,7 +362,7 @@ class TabManagerUI {
 
                     if (isActive) {
                         // 激活铃铛
-                        const { activeReminderInterval } = await chrome.storage.local.get('activeReminderInterval');
+                        const { activeReminderInterval } = await chrome.storage.local.get('reminderInterval');
                         if (!activeReminderInterval) {
                             alert('Please set a reminder time and click "Go Remind!" first');
                             return;
