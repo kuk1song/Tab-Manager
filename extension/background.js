@@ -377,20 +377,7 @@ async function handleCountdownEnd(tabId) {
     try {
         const tab = await chrome.tabs.get(parseInt(tabId));
         
-        // 获取当前窗口信息来定位提醒窗口
-        const currentWindow = await chrome.windows.getCurrent();
-        const left = currentWindow ? (currentWindow.left + currentWindow.width - 420) : 100;
-        const top = currentWindow ? currentWindow.top + 20 : 100;
-        
-        // 创建提醒窗口
-        await chrome.windows.create({
-            url: `reminder.html?tabId=${tab.id}&message=${encodeURIComponent('Time to check this tab!')}&title=${encodeURIComponent(tab.title)}`,
-            type: 'popup',
-            width: 400,
-            height: 500,
-            left: left,
-            top: top
-        });
+        await createReminderWindow(tab);
 
         // Clear the reminder state for this tab
         await chrome.storage.local.set({
@@ -667,21 +654,28 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     chrome.storage.local.remove(`reminder_${tabId}`);
 });
 
-// 创建一个统一的创建提醒窗口函数
+// Create a reminder window
 async function createReminderWindow(tab, message = 'Time to check this tab!') {
-    const screenWidth = screen.width;
-    const windowLeft = Math.floor(screenWidth - 420);
-    
-    const window = await chrome.windows.create({
-        url: `reminder.html?tabId=${tab.id}&message=${encodeURIComponent(message)}&title=${encodeURIComponent(tab.title)}`,
-        type: 'popup',
-        width: 400,
-        height: 500,
-        left: windowLeft,
-        top: 20
-    });
-    
-    return window;
+    try {
+        // 获取当前窗口信息来定位提醒窗口
+        const currentWindow = await chrome.windows.getCurrent();
+        const left = currentWindow ? (currentWindow.left + currentWindow.width - 420) : 100;
+        const top = currentWindow ? currentWindow.top + 20 : 100;
+        
+        const window = await chrome.windows.create({
+            url: `reminder.html?tabId=${tab.id}&message=${encodeURIComponent(message)}&title=${encodeURIComponent(tab.title)}`,
+            type: 'popup',
+            width: 400,
+            height: 500,
+            left: left,
+            top: top
+        });
+        
+        return window;
+    } catch (err) {
+        console.error('Failed to create reminder window:', err);
+        throw err;
+    }
 }
 
 // 在扩展启动时恢复所有活动的倒计时
