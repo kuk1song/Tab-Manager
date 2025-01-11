@@ -317,7 +317,7 @@ async function initializeExtension() {
     }
 }
 
-// 修改 startGlobalChecker 函数开头
+// Global check per second
 function startGlobalChecker() {
     console.log('startGlobalChecker called at:', new Date().toISOString());
     
@@ -338,7 +338,7 @@ function startGlobalChecker() {
             for (const [key, value] of Object.entries(data)) {
                 // 检查是否是激活的提醒
                 if (key.startsWith('reminder_') && value === true) {
-                    const tabId = key.split('_')[1];
+                    const tabId = key.split('_')[1];  // tabId: Indicates the uniqueID of the browser Tab to be reminded
                     const endTimeKey = `reminderEnd_${tabId}`;
                     const endTime = data[endTimeKey];
 
@@ -357,7 +357,7 @@ function startGlobalChecker() {
                     if (typeof endTime === 'number' && !isNaN(endTime) && endTime <= now) {
                         // 时间到了，只需要更新状态
                         await chrome.storage.local.set({
-                            [`reminder_${tabId}`]: false
+                            [`reminder_${tabId}`]: false // Turn off the reminder function for this tab
                         });
                         // storage 的变化会触发 onChanged 监听器
                     }
@@ -392,9 +392,9 @@ async function handleCountdownEnd(tabId) {
             top: top
         });
 
-        // 清理状态
+        // Clear the reminder state for this tab
         await chrome.storage.local.set({
-            [`reminder_${tabId}`]: false
+            [`reminder_${tabId}`]: false  // Turn off the reminder function for this tab
         });
         await chrome.storage.local.remove([
             `reminderEnd_${tabId}`,
@@ -492,7 +492,6 @@ const messageHandler = async (message, sender, sendResponse) => {
                 if (reminderData.customReminderTabs.has(tabId)) {
                     handleBellStateChange(tabId, false);
                     delete reminderData.reminderTimes[tabId];
-                    activeReminders.delete(tabId);
                     saveReminderData();
                 }
                 sendResponse({ status: 'success' });
@@ -569,10 +568,6 @@ async function initializeBellState(tabId) {
     // 清理内存中的状态
     reminderData.customReminderTabs.delete(tabId);
     delete reminderData.reminderTimes[tabId];
-    if (activeReminders.has(tabId)) {
-        clearTimeout(activeReminders.get(tabId));
-        activeReminders.delete(tabId);
-    }
 }
 
 // 在初始化函数中也使用它
@@ -643,7 +638,6 @@ async function toggleCustomReminder(tabId) {
 // 监听标签页关闭事件，清理对应的存储
 chrome.tabs.onRemoved.addListener((tabId) => {
     // 当标签页关闭时，清理相关的提醒记录
-    activeReminders.delete(tabId);
     if (reminderData.customReminderTabs.has(tabId)) {
         reminderData.customReminderTabs.delete(tabId);
         delete reminderData.reminderTimes[tabId];
@@ -694,7 +688,7 @@ async function createReminderWindow(tab, message = 'Time to check this tab!') {
 async function restoreCountdowns() {
     try {
         const data = await chrome.storage.local.get(null);
-        const now = Date.now();
+        // const now = Date.now();
         console.log('Restoring countdowns, current data:', data);
 
         for (const [key, value] of Object.entries(data)) {
@@ -719,7 +713,7 @@ async function restoreCountdowns() {
     }
 }
 
-// 修改倒计时管理
+// Initialize timers
 async function initializeTimers() {
     if (isInitialized) return;
     isInitialized = true;
