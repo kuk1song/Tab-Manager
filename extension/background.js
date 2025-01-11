@@ -31,7 +31,7 @@ const reminderData = {
     customReminderTabs: new Set()  // 存储用户自定义要提醒的标签页ID
 };
 
-// 添加提醒消息模板
+// Reminder messages template 
 const reminderMessages = {
     work: [
         "📊 Important work tab needs attention!",
@@ -655,15 +655,23 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 // Create a reminder window
-async function createReminderWindow(tab, message = 'Time to check this tab!') {
+async function createReminderWindow(tab) {
     try {
+        // 获取标签页的分析结果，确定类别
+        const { tabData } = await chrome.storage.local.get('tabData');
+        const category = tabData?.analysis?.[tab.id]?.category || 'other';
+        
+        // 从消息模板中随机选择一条消息
+        const messages = reminderMessages[category] || reminderMessages.other;
+        const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+        
         // 获取当前窗口信息来定位提醒窗口
         const currentWindow = await chrome.windows.getCurrent();
         const left = currentWindow ? (currentWindow.left + currentWindow.width - 420) : 100;
         const top = currentWindow ? currentWindow.top + 20 : 100;
         
         const window = await chrome.windows.create({
-            url: `reminder.html?tabId=${tab.id}&message=${encodeURIComponent(message)}&title=${encodeURIComponent(tab.title)}`,
+            url: `reminder.html?tabId=${tab.id}&message=${encodeURIComponent(randomMessage)}&title=${encodeURIComponent(tab.title)}`,
             type: 'popup',
             width: 400,
             height: 500,
